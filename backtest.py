@@ -1,9 +1,12 @@
+"""Utility script that replays historical data through the AI prompt."""
+
 import os
+from typing import List
+
 from data_access.DAL.coins_DAL import CoinsDAL
 from services.coingecko_service import CoinGecko
 from services.openai_service import OpenAIService
-from utils.load_env import *
-from utils.load_env import prompt_template
+from utils.load_env import settings
 
 
 COINS_FILE = os.path.join(os.path.dirname(__file__), "data_access/data/coins.json")
@@ -13,14 +16,16 @@ ai = OpenAIService()
 cg = CoinGecko()
 
 
-def run_backtest_single_coin(prompt_template, symbol):
+def run_backtest_single_coin(
+    symbol: str, prompt_template: str = settings.prompt_template
+):
     coin = coins_dal.get_coin_by_symbol(symbol)
     if not coin:
         print(f"Coin with symbol '{symbol}' not found.")
         return []
 
-    results = []
-    buy_entries = []
+    results: List[dict] = []
+    buy_entries: List[dict] = []
     for i, price_entry in enumerate(coin.prices, start=1):
         price_slice = coin.prices[:i]
         timestamp = price_entry[0]
@@ -53,7 +58,7 @@ def run_backtest_single_coin(prompt_template, symbol):
 if __name__ == "__main__":
 
     symbol = input("Enter coin symbol to backtest: ").strip()
-    results, buy_entries = run_backtest_single_coin(prompt_template, symbol)
+    results, buy_entries = run_backtest_single_coin(symbol)
     print("\nAll recommendations:")
     for r in results:
         print(r)
