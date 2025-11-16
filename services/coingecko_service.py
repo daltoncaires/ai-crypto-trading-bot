@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import List, Optional
+import time # Import time module
 
 import requests
 
@@ -13,16 +14,17 @@ from utils.load_env import settings
 
 class CoinGecko:
     def __init__(self):
-        self.root = "https://pro-api.coingecko.com/api/v3"
+        self.root = "https://api.coingecko.com/api/v3"
         self.headers = {
             "accept": "application/json",
-            "x-cg-pro-api-key": settings.cg_api_key,
+            "x-cg-demo-api-key": settings.cg_api_key,
         }
 
     def get_price_by_coin_id(self, coin_id: str) -> Optional[float]:
         request_url = self.root + f"/simple/price?ids={coin_id}&vs_currencies=usd"
         response = requests.get(request_url, headers=self.headers, timeout=10)
         response.raise_for_status()
+        time.sleep(10) # Increased delay
         data = response.json()
         return data.get(coin_id, {}).get("usd")
 
@@ -35,15 +37,18 @@ class CoinGecko:
     ):
         request_url = f"{self.root}/coins/{coin_id}/ohlc?vs_currency={vs_currency}&days={days}&interval={interval}"
         response = requests.get(request_url, headers=self.headers, timeout=10)
+        time.sleep(10) # Increased delay
         candles = response.json()
         return candles
 
     def get_coins(self) -> List[Coin]:
         request_url = (
             self.root
-            + "/coins/markets?order=market_cap_desc&per_page=250&vs_currency=usd&price_change_percentage=1h"
+            + "/coins/markets?order=market_cap_desc&per_page=10&vs_currency=usd&price_change_percentage=1h"
         )
         response = requests.get(request_url, headers=self.headers, timeout=10)
+        response.raise_for_status()
+        time.sleep(10) # Increased delay
         data = response.json()
         coins = []
         now = datetime.now().timestamp()
@@ -66,4 +71,5 @@ class CoinGecko:
             request_url += f"&chain={chain}"
         response = requests.get(request_url, headers=self.headers, timeout=10)
         response.raise_for_status()
+        time.sleep(10) # Increased delay
         return response.json()

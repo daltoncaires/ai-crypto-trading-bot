@@ -6,16 +6,16 @@ from services.coingecko_service import CoinGecko
 from datetime import datetime
 
 
-def fetch_and_add_historic_prices(symbol, ohlc_data, coins_file):
-    """Add [timestamp, close] prices for a coin from OHLC data directly to JSON file."""
-    from data_access.DAL.coins_DAL import CoinsDAL
-
+def fetch_and_add_historic_prices(symbol: str, ohlc_data: List[list], coins_file: str):
     coins_dal = CoinsDAL(coins_file)
     prices = []
     for candle in ohlc_data:
-        timestamp = candle[0] / 1000  # Convert ms to s
-        close = candle[4]
-        prices.append([timestamp, close])
+        timestamp = int(candle[0]) / 1000  # Convert ms to s
+        open_price = candle[1]
+        high_price = candle[2]
+        low_price = candle[3]
+        close_price = candle[4]
+        prices.append([timestamp, open_price, high_price, low_price, close_price])
     coins_dal.add_prices_to_coin(symbol, prices)
 
 

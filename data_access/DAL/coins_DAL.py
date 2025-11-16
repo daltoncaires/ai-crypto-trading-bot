@@ -8,7 +8,7 @@ class CoinsDAL:
         self.file_path = file_path
 
     def get_all_coins(self) -> List[Coin]:
-        return Coin.from_list(Base_JSON_DAL.get_all(self.file_path))
+        return [Coin.from_dict(data) for data in Base_JSON_DAL.get_all(self.file_path)]
 
     def get_coin_by_symbol(self, symbol: str) -> Optional[Coin]:
         return next((c for c in self.get_all_coins() if c.symbol == symbol), None)
