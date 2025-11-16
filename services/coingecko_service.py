@@ -1,8 +1,14 @@
-import requests
-from data_access.models.coin import Coin
-from utils.load_env import *
-from typing import List
+"""Thin wrapper around the CoinGecko Pro API."""
+
+from __future__ import annotations
+
 from datetime import datetime
+from typing import List, Optional
+
+import requests
+
+from data_access.models.coin import Coin
+from utils.load_env import settings
 
 
 class CoinGecko:
@@ -10,12 +16,13 @@ class CoinGecko:
         self.root = "https://pro-api.coingecko.com/api/v3"
         self.headers = {
             "accept": "application/json",
-            "x-cg-pro-api-key": f"{cg_api_key}",
+            "x-cg-pro-api-key": settings.cg_api_key,
         }
 
-    def get_price_by_coin_id(self, coin_id: str):
+    def get_price_by_coin_id(self, coin_id: str) -> Optional[float]:
         request_url = self.root + f"/simple/price?ids={coin_id}&vs_currencies=usd"
-        response = requests.get(request_url, self.headers)
+        response = requests.get(request_url, headers=self.headers, timeout=10)
+        response.raise_for_status()
         data = response.json()
         return data.get(coin_id, {}).get("usd")
 
@@ -27,7 +34,7 @@ class CoinGecko:
         interval: str = "hourly",
     ):
         request_url = f"{self.root}/coins/{coin_id}/ohlc?vs_currency={vs_currency}&days={days}&interval={interval}"
-        response = requests.get(request_url, headers=self.headers)
+        response = requests.get(request_url, headers=self.headers, timeout=10)
         candles = response.json()
         return candles
 
@@ -36,7 +43,7 @@ class CoinGecko:
             self.root
             + "/coins/markets?order=market_cap_desc&per_page=250&vs_currency=usd&price_change_percentage=1h"
         )
-        response = requests.get(request_url, headers=self.headers)
+        response = requests.get(request_url, headers=self.headers, timeout=10)
         data = response.json()
         coins = []
         now = datetime.now().timestamp()
@@ -53,8 +60,10 @@ class CoinGecko:
             coins.append(coin)
         return coins
 
-    def search_pools(self, query: str = None, chain: str = None):
+    def search_pools(self, query: str | None = None, chain: str | None = None):
         request_url = f"{self.root}/onchain/search/pools?query={query}"
-        response = requests.get(request_url, headers=self.headers)
-
+        if chain:
+            request_url += f"&chain={chain}"
+        response = requests.get(request_url, headers=self.headers, timeout=10)
+        response.raise_for_status()
         return response.json()
