@@ -57,9 +57,7 @@ class CoinGecko:
                 coin_id=coin_data["id"],
                 symbol=coin_data["symbol"],
                 realized_pnl=0.0,
-                price_change=coin_data.get(
-                    "price_change_percentage_1h_in_currency", 0.0
-                ),
+                price_change=coin_data.get("price_change_percentage_1h_in_currency") or 0.0,
             )
             coin.prices = [[now, coin_data["current_price"]]]
             coins.append(coin)
