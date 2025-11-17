@@ -58,13 +58,24 @@ def _read_env_float(var_name: str, default: Optional[float] = None) -> float:
 
 
 def _load_prompt_template(path: Optional[str]) -> str:
+    """
+    Loads the prompt template from the given path. If the path is not
+    provided or the file doesn't exist, it returns a default prompt.
+    """
+    default_prompt = (
+        "Given the following crypto data, should I BUY, SELL, or HOLD? "
+        "Provide a brief justification for your decision. "
+        "Context: {context}"
+    )
     if not path:
-        raise ValueError("Environment variable 'PROMPT_TEMPLATE' is required")
+        print("--- PROMPT_TEMPLATE env var not set, using default prompt. ---")
+        return default_prompt
     template_path = Path(path)
     if not template_path.exists():
-        raise FileNotFoundError(
-            f"Prompt template file '{template_path}' does not exist"
+        print(
+            f"--- Prompt template file '{path}' not found, using default prompt. ---"
         )
+        return default_prompt
     return template_path.read_text()
 
 
