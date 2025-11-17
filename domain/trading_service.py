@@ -1,5 +1,5 @@
 from datetime import datetime
-from data_access.models.paper_order import PaperOrder
+from domain.models.paper_order import PaperOrder
 
 
 class TradingService:
