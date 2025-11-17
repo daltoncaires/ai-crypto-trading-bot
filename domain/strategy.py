@@ -10,6 +10,8 @@ from domain.trading_service import TradingService
 from utils.load_env import Settings
 from utils.logger import get_logger
 
+from domain.components.strategy_component import StrategyComponent
+
 if TYPE_CHECKING:
     from domain.ports.data_storage_port import DataStoragePort
     from domain.ports.decision_engine_port import DecisionEnginePort
@@ -17,7 +19,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class Strategy:
+class Strategy(StrategyComponent):
     """
     Contains the logic for making buy or sell decisions based on market
     data and AI recommendations.

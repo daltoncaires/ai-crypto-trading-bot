@@ -9,13 +9,15 @@ from domain.models.coin import Coin
 from utils.load_env import Settings
 from utils.logger import get_logger
 
+from domain.components.evaluator_component import EvaluatorComponent
+
 if TYPE_CHECKING:
     from domain.ports.market_data_port import MarketDataPort
 
 logger = get_logger(__name__)
 
 
-class Evaluator:
+class Evaluator(EvaluatorComponent):
     """
     Evaluates coins to determine if they are viable candidates for trading.
     """
