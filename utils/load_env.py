@@ -59,6 +59,8 @@ class Settings:
     shadow_evaluator_class: Optional[str]
     shadow_strategy_module: Optional[str]
     shadow_strategy_class: Optional[str]
+    coingecko_enabled: bool
+    binance_enabled: bool
 
 
 def _read_env_float(var_name: str, default: Optional[float] = None) -> float:
@@ -88,8 +90,7 @@ def _load_prompt_template(path: Optional[str]) -> str:
         print(
             f"--- Prompt template file '{path}' not found, using default prompt. ---"
         )
-        return default_prompt
-    return template_path.read_text()
+        return template_path.read_text()
 
 
 def load_settings() -> Settings:
@@ -142,6 +143,8 @@ def load_settings() -> Settings:
         shadow_evaluator_class=os.getenv("SHADOW_EVALUATOR_CLASS"),
         shadow_strategy_module=os.getenv("SHADOW_STRATEGY_MODULE"),
         shadow_strategy_class=os.getenv("SHADOW_STRATEGY_CLASS"),
+        coingecko_enabled=os.getenv("COINGECKO_ENABLED", "True").lower() == "true",
+        binance_enabled=os.getenv("BINANCE_ENABLED", "False").lower() == "true",
     )
     return settings
 
