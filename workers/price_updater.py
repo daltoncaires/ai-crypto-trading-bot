@@ -4,6 +4,9 @@ from data_access.DAL.coins_DAL import CoinsDAL
 from data_access.models.coin import Coin
 from services.coingecko_service import CoinGecko
 from datetime import datetime
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def fetch_and_add_historic_prices(symbol: str, ohlc_data: List[list], coins_file: str):
@@ -28,20 +31,23 @@ def add_new_coin_with_history(symbol, coin_id, coins_file, ohlc_data):
 
 
 def update_coin_prices(coins_file: str) -> List[Coin]:
+    logger.info("Starting coin price update process...")
     coins_dal = CoinsDAL(coins_file)
     local_coins = coins_dal.get_all_coins()
     local_coins_ids = [coin.coin_id for coin in local_coins]
 
     if len(local_coins) == 0:
-        print("There are no coins in the JSON file, cannot add prices")
+        logger.warning("There are no coins in the data store, cannot update prices.")
         return []
 
     cg = CoinGecko()
+    logger.info("Fetching latest market data from CoinGecko...")
     coin_list = cg.get_coins()
     new_coins = 0
     for coin in coin_list:
         if coin.coin_id not in local_coins_ids:
             new_coins += 1
+            logger.info(f"New coin '{coin.symbol}' found. Fetching its historical data.")
             ohlc_data = cg.get_historic_ohlc_by_coin_id(coin.coin_id, days=1)
             add_new_coin_with_history(
                 coin.symbol,
@@ -52,8 +58,10 @@ def update_coin_prices(coins_file: str) -> List[Coin]:
         if len(coin.prices) > 0:
             coins_dal.add_prices_to_coin(coin.symbol, coin.prices)
         coins_dal.update_coin_price_change(coin.symbol, coin.price_change)
-    print(f"Price updated for {len(coin_list)} coins")
-    print(
-        f"Inserted {new_coins} coins to the coins JSON file likely due movements in the top 250."
-    )
+
+    logger.info(f"Price data updated for {len(coin_list)} coins.")
+    if new_coins > 0:
+        logger.info(
+            f"Inserted {new_coins} new coins into the data store due to market cap changes."
+        )
     return coin_list

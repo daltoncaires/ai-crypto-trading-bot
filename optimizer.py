@@ -17,12 +17,16 @@ Core Concepts Implemented:
 """
 
 import json
+import sys
 import numpy as np
 import pandas as pd
 import vectorbt as vbt
 import optuna
 
 from data_access.DAL.coins_DAL import CoinsDAL
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # --- Configuration ---
 PARAMS_FILE = "best_params.json"
@@ -41,7 +45,7 @@ def load_price_data(symbol: str) -> pd.Series:
     Loads historical price data for a single coin from the JSON data store
     and returns it as a pandas Series.
     """
-    print(f"Loading historical data for {symbol}...")
+    logger.info(f"Loading historical data for {symbol}...")
     coins_dal = CoinsDAL(COINS_FILE)
     coin = coins_dal.get_coin_by_symbol(symbol)
     if not coin or not coin.prices:
@@ -55,7 +59,7 @@ def load_price_data(symbol: str) -> pd.Series:
 
     # vectorbt works with Series, so we'll use the closing price
     price_series = df["close"]
-    print(f"Loaded {len(price_series)} data points for {symbol}.")
+    logger.info(f"Loaded {len(price_series)} data points for {symbol}.")
     return price_series
 
 
@@ -90,7 +94,7 @@ def run_wfo(price_series: pd.Series):
     """
     Orchestrates the Walk-Forward Optimization process.
     """
-    print("\n--- Starting Walk-Forward Optimization ---")
+    logger.info("--- Starting Walk-Forward Optimization ---")
 
     # Use vectorbt's built-in splitter for robust windowing
     splitter = vbt.Splitter.from_rolling(
@@ -104,16 +108,16 @@ def run_wfo(price_series: pd.Series):
     latest_best_params = {}
 
     for i, (train_idx, test_idx) in enumerate(splitter.split()):
-        print(f"\n--- Processing Fold {i+1}/{N_FOLDS} ---")
+        logger.info(f"--- Processing Fold {i+1}/{N_FOLDS} ---")
 
         train_prices = price_series.iloc[train_idx]
         test_prices = price_series.iloc[test_idx]
 
-        print(
+        logger.info(
             f"Train period: {train_prices.index[0]} to {train_prices.index[-1]} "
             f"({len(train_prices)} points)"
         )
-        print(
+        logger.info(
             f"Test period:  {test_prices.index[0]} to {test_prices.index[-1]} "
             f"({len(test_prices)} points)"
         )
@@ -137,7 +141,7 @@ def run_wfo(price_series: pd.Series):
             portfolio = run_backtest(train_prices, params)
             return portfolio.total_return()
 
-        print(f"Running Optuna optimization for {N_TRIALS} trials...")
+        logger.info(f"Running Optuna optimization for {N_TRIALS} trials...")
         study = optuna.create_study(
             direction="maximize", pruner=optuna.pruners.MedianPruner()
         )
@@ -145,32 +149,32 @@ def run_wfo(price_series: pd.Series):
 
         best_params = study.best_params
         latest_best_params = best_params
-        print(f"Optimization complete. Best Return: {study.best_value:.2%}")
-        print(f"Best Parameters: {best_params}")
+        logger.info(f"Optimization complete. Best Return: {study.best_value:.2%}")
+        logger.info(f"Best Parameters: {best_params}")
 
         # --- Validation Step ---
-        print("Validating parameters on out-of-sample test data...")
+        logger.info("Validating parameters on out-of-sample test data...")
         test_portfolio = run_backtest(test_prices, best_params)
         fold_return = test_portfolio.total_return()
         fold_results.append(fold_return)
 
-        print(f"Fold {i+1} Out-of-Sample Return: {fold_return:.2%}")
-        print(f"Total Trades: {test_portfolio.trades.count()}")
+        logger.info(f"Fold {i+1} Out-of-Sample Return: {fold_return:.2%}")
+        logger.info(f"Total Trades: {test_portfolio.trades.count()}")
 
     # --- Save latest parameters for the Flywheel Effect ---
     if latest_best_params:
-        print("\n--- Saving latest optimal parameters for live bot ---")
+        logger.info("--- Saving latest optimal parameters for live bot ---")
         # These are the parameters found on the most recent training data
         with open(PARAMS_FILE, "w") as f:
             json.dump(latest_best_params, f, indent=2)
-        print(f"Saved parameters to {PARAMS_FILE}")
+        logger.info(f"Saved parameters to {PARAMS_FILE}")
 
     # --- Final Report ---
     total_return = np.prod([1 + r for r in fold_results]) - 1
-    print("\n--- WFO Final Results ---")
-    print(f"Analyzed {N_FOLDS} folds.")
-    print(f"Total Out-of-Sample Return: {total_return:.2%}")
-    print(f"Average Fold Return: {np.mean(fold_results):.2%}")
+    logger.info("--- WFO Final Results ---")
+    logger.info(f"Analyzed {N_FOLDS} folds.")
+    logger.info(f"Total Out-of-Sample Return: {total_return:.2%}")
+    logger.info(f"Average Fold Return: {np.mean(fold_results):.2%}")
 
 
 if __name__ == "__main__":
@@ -181,9 +185,13 @@ if __name__ == "__main__":
         prices = load_price_data(TARGET_SYMBOL)
         run_wfo(prices)
     except (ValueError, FileNotFoundError) as e:
-        print(f"Error: {e}")
-        print(
+        logger.error(f"Error: {e}", exc_info=True)
+        logger.error(
             "Please ensure 'data_access/data/coins.json' exists and contains "
             f"historical data for the symbol '{TARGET_SYMBOL}'."
         )
-        print("You can generate it by running the main bot once.")
+        logger.error("You can generate it by running the main bot once.")
+        sys.exit(1)
+    except Exception as e:
+        logger.critical("An unexpected error occurred.", exc_info=True)
+        sys.exit(1)

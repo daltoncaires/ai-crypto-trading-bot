@@ -24,3 +24,4 @@ pandas
 vectorbt
 optuna
 ray
+colorlog

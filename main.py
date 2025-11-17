@@ -18,8 +18,11 @@ from services.coingecko_service import CoinGecko
 from services.openai_service import OpenAIService
 from services.trading_service import TradingService
 from utils.load_env import Settings, settings
+from utils.logger import get_logger
 from workers.initializer import initialize_coin_data
 from workers.price_updater import update_coin_prices
+
+logger = get_logger(__name__)
 
 BASE_DIR = os.path.dirname(__file__)
 COINS_FILE = os.path.join(BASE_DIR, "data_access/data/coins.json")
@@ -58,27 +61,35 @@ class TradingBot:
 
     def run(self, run_once: bool = False) -> None:
         """Continuously run trading cycles."""
-
+        logger.info("Starting trading bot...")
         while True:
+            logger.info("Starting new trading cycle.")
             self._run_cycle()
             if run_once:
+                logger.info("Run-once flag is set, shutting down.")
                 break
-            print(f"Engine cycle complete, sleeping for {self.loop_interval} seconds.")
+            logger.info(
+                f"Engine cycle complete, sleeping for {self.loop_interval} seconds."
+            )
             time.sleep(self.loop_interval)
 
     def _run_cycle(self) -> None:
         coins = self.deps.coins_dal.get_all_coins()
         if not coins:
-            print("No coins found in local storage. Skipping cycle.")
+            logger.warning("No coins found in local storage. Skipping cycle.")
             return
 
         for coin in coins:
             if coin.price_change < self.config.trade.price_change_threshold:
+                logger.debug(
+                    f"Skipping {coin.symbol} due to low price change: "
+                    f"{coin.price_change} < {self.config.trade.price_change_threshold}"
+                )
                 continue
 
             current_price = self.deps.cg.get_price_by_coin_id(coin.coin_id)
             if current_price is None:
-                print(f"Unable to fetch price for {coin.symbol}, skipping.")
+                logger.warning(f"Unable to fetch price for {coin.symbol}, skipping.")
                 continue
 
             self.deps.coins_dal.update_coin_price_change(
@@ -101,12 +112,12 @@ class TradingBot:
             context, self.config.prompt_template
         )
         if "BUY" not in recommendation.upper():
-            print(
-                f"NOT buying {coin.symbol} per AI recommendation: {recommendation}"
+            logger.info(
+                f"AI recommendation for {coin.symbol}: NEUTRAL/SELL. Details: {recommendation}"
             )
             return
 
-        print(f"Buying {coin.symbol} per AI recommendation: {recommendation}")
+        logger.info(f"AI recommendation for {coin.symbol}: BUY. Details: {recommendation}")
         order = TradingService.buy(
             coin.symbol, current_price, self.config.trade.order_amount
         )
@@ -118,7 +129,7 @@ class TradingBot:
             self.deps.portfolio_dal.insert_portfolio_item(
                 order.symbol, order.buy_price, order.quantity
             )
-            print(f"Bought {order.symbol} and inserted new portfolio record.")
+            logger.info(f"Bought {order.symbol} and inserted new portfolio record.")
         else:
             cost_basis = TradingService.calculate_cost_basis(
                 existing_portfolio.cost_basis,
@@ -129,10 +140,8 @@ class TradingBot:
             self.deps.portfolio_dal.update_portfolio_item_by_symbol(
                 order.symbol, cost_basis, order.quantity
             )
-            print(
-                "Bought {symbol}. Updated existing portfolio entry with new order data.".format(
-                    symbol=order.symbol
-                )
+            logger.info(
+                f"Bought {order.symbol}. Updated existing portfolio entry with new order data."
             )
 
         self.deps.orders_dal.insert_order(
@@ -141,13 +150,17 @@ class TradingBot:
 
     def _handle_sell(self, coin: Coin, current_price: float) -> None:
         buy_orders = self.deps.orders_dal.get_all_orders("BUY")
-        filtered_buy_orders = [order for order in buy_orders if order.symbol == coin.symbol]
+        filtered_buy_orders = [
+            order for order in buy_orders if order.symbol == coin.symbol
+        ]
         if not filtered_buy_orders:
             return
 
         for order in filtered_buy_orders:
             stop_loss_price = order.buy_price * (1 - self.config.trade.stop_loss / 100)
-            take_profit_price = order.buy_price * (1 + self.config.trade.take_profit / 100)
+            take_profit_price = order.buy_price * (
+                1 + self.config.trade.take_profit / 100
+            )
             current_pnl = (current_price - order.buy_price) / order.buy_price * 100
 
             if current_price <= stop_loss_price or current_price >= take_profit_price:
@@ -157,7 +170,7 @@ class TradingBot:
                 trigger = (
                     "Stop Loss" if current_price <= stop_loss_price else "Take Profit"
                 )
-                print(
+                logger.info(
                     f"{trigger} Triggered: Sold {order.quantity} of {order.symbol} at ${current_price}"
                 )
                 self.deps.orders_dal.insert_order(
@@ -171,7 +184,9 @@ class TradingBot:
 
     def _check_pools(self, coin: Coin) -> List[dict]:
         pools_response = self.deps.cg.search_pools(coin.symbol)
-        pools_data = pools_response.get("data", []) if isinstance(pools_response, dict) else []
+        pools_data = (
+            pools_response.get("data", []) if isinstance(pools_response, dict) else []
+        )
         filtered_pools = []
         for pool in pools_data:
             reserve = pool.get("reserve_in_usd", 0)
@@ -209,6 +224,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
 
 def main(argv: Iterable[str] | None = None) -> None:
     args = parse_args(argv if argv is not None else sys.argv[1:])
+    logger.info("Initializing dependencies...")
     deps = BotDependencies(
         coins_dal=CoinsDAL(COINS_FILE),
         orders_dal=OrdersDAL(ORDERS_FILE),
@@ -217,10 +233,15 @@ def main(argv: Iterable[str] | None = None) -> None:
         ai=OpenAIService(),
     )
     bot = TradingBot(deps, settings, loop_interval=args.interval)
+    logger.info("Bootstrapping data...")
     bot.bootstrap_data(refresh_prices=not args.skip_refresh)
     bot.run(run_once=args.once)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.critical("A critical error occurred.", exc_info=True)
+        sys.exit(1)
 
