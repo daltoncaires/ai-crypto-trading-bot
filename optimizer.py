@@ -10,7 +10,7 @@ Core Concepts Implemented:
   calculations, including realistic costs.
 - Walk-Forward Optimization (WFO): To simulate real-world performance by
   training on past data and validating on unseen future data.
-- (Future) Hyperparameter Optimization with `Optuna`: To find the best
+- Hyperparameter Optimization with `Optuna`: To find the best
   strategy parameters in each training window.
 - (Future) Flywheel Effect: The best parameters found can be saved and used as
   new defaults for the live trading bot.
@@ -19,6 +19,7 @@ Core Concepts Implemented:
 import numpy as np
 import pandas as pd
 import vectorbt as vbt
+import optuna
 
 from data_access.DAL.coins_DAL import CoinsDAL
 
@@ -30,6 +31,7 @@ TRANSACTION_FEES = 0.001  # Binance VIP level 0 taker fee is 0.1%
 # WFO Configuration
 N_FOLDS = 5  # Number of walk-forward folds
 TRAIN_TEST_SPLIT = 0.7  # 70% for training, 30% for testing in each fold
+N_TRIALS = 100 # Number of optimization trials for Optuna in each fold
 
 
 def load_price_data(symbol: str) -> pd.Series:
@@ -113,16 +115,36 @@ def run_wfo(price_series: pd.Series):
             f"({len(test_prices)} points)"
         )
 
-        # --- Optimization Step (Placeholder) ---
-        # In the next iteration, we will use Optuna here to find the best params
-        # For now, we use fixed "best" parameters as a placeholder.
-        print("Skipping optimization, using fixed placeholder parameters.")
-        best_params = {
-            "fast_window": 21,
-            "slow_window": 50,
-            "stop_loss": 0.10,  # 10%
-            "take_profit": 0.20,  # 20%
-        }
+        # --- Optimization Step with Optuna ---
+        def objective(trial: optuna.Trial) -> float:
+            """
+            Objective function for Optuna to maximize.
+            """
+            params = {
+                "fast_window": trial.suggest_int("fast_window", 10, 50),
+                "slow_window": trial.suggest_int("slow_window", 51, 200),
+                "stop_loss": trial.suggest_float("stop_loss", 0.05, 0.30),
+                "take_profit": trial.suggest_float("take_profit", 0.10, 0.50),
+            }
+
+            # Ensure fast_window is smaller than slow_window
+            if params["fast_window"] >= params["slow_window"]:
+                return -1.0 # Return a poor score to prune this trial
+
+            portfolio = run_backtest(train_prices, params)
+            return portfolio.total_return()
+
+        print(f"Running Optuna optimization for {N_TRIALS} trials...")
+        study = optuna.create_study(
+            direction="maximize",
+            pruner=optuna.pruners.MedianPruner()
+        )
+        study.optimize(objective, n_trials=N_TRIALS, n_jobs=-1) # Use all available CPU cores
+
+        best_params = study.best_params
+        print(f"Optimization complete. Best Return: {study.best_value:.2%}")
+        print(f"Best Parameters: {best_params}")
+
 
         # --- Validation Step ---
         print("Validating parameters on out-of-sample test data...")
@@ -142,6 +164,9 @@ def run_wfo(price_series: pd.Series):
 
 
 if __name__ == "__main__":
+    # Suppress Optuna's informational messages
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    
     try:
         prices = load_price_data(TARGET_SYMBOL)
         run_wfo(prices)
