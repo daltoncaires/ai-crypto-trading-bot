@@ -16,7 +16,7 @@ class Coin:
             coin_id=data.get('coinId'),
             symbol=data.get('symbol'),
             realized_pnl=data.get('realizedPnl', 0.0),
-            price_change=data.get('priceChange', 0.0),
+            price_change=data.get('priceChange') or 0.0,
             prices=data.get('prices', [])
         )
 
