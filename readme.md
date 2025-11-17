@@ -16,6 +16,17 @@ This is a minimal, modular AI-powered crypto trading bot for learning, experimen
 - Simulates trading logic, including buy/sell handling, portfolio updates, and PnL tracking.
 - Includes a backtesting module to evaluate AI-driven strategies on historical data.
 - All configuration is handled via environment variables for easy tuning.
+- **API-Driven Configuration**: Adapts to the available data from the CoinGecko API, ensuring resilience to changes and gracefully handling missing data points.
+
+### API-Driven Configuration (Schema Discovery)
+A core principle of this bot is to adapt to the data provided by the external API (CoinGecko). Instead of relying on hardcoded parameters, the bot discovers available information, such as the list of top coins, and adjusts its behavior accordingly.
+
+This approach provides several advantages:
+- **Resilience**: The bot is less likely to break if the API schema changes or if certain data points are temporarily unavailable.
+- **Adaptability**: The bot automatically incorporates new coins as they enter the top market cap rankings.
+- **Dynamic Rate Limiting**: While the CoinGecko Demo API does not provide rate limit headers, the bot uses a conservative delay between API calls to avoid `429 Too Many Requests` errors. This can be extended to a more dynamic strategy if using a Pro plan.
+
+The decision-making engine is designed to be aware of and utilize the data schema as provided by the exchange/broker, making it more robust and adaptable to real-world conditions.
 
 ### Getting Started
 
@@ -96,6 +107,17 @@ Este é um bot de negociação de criptomoedas minimalista e modular, alimentado
 - Simula a lógica de negociação, incluindo o manuseio de compra/venda, atualizações de portfólio e acompanhamento de PnL (Lucros e Perdas).
 - Inclui um módulo de backtesting para avaliar estratégias orientadas por IA em dados históricos.
 - Toda a configuração é tratada por meio de variáveis de ambiente para fácil ajuste.
+- **Configuração Orientada à API**: Adapta-se aos dados disponíveis da API do CoinGecko, garantindo resiliência a mudanças e lidando de forma elegante com pontos de dados ausentes.
+
+### Configuração Orientada à API (Schema Discovery)
+Um princípio central deste bot é se adaptar aos dados fornecidos pela API externa (CoinGecko). Em vez de depender de parâmetros fixos no código, o bot descobre as informações disponíveis, como a lista das principais moedas, e ajusta seu comportamento de acordo.
+
+Esta abordagem oferece várias vantagens:
+- **Resiliência**: O bot é menos propenso a quebrar se o schema da API mudar ou se certos pontos de dados estiverem temporariamente indisponíveis.
+- **Adaptabilidade**: O bot incorpora automaticamente novas moedas à medida que elas entram no ranking de maior capitalização de mercado.
+- **Limitação de Taxa Dinâmica**: Embora a API de demonstração do CoinGecko não forneça cabeçalhos de limite de taxa, o bot usa um atraso conservador entre as chamadas de API para evitar erros `429 Too Many Requests`. Isso pode ser estendido para uma estratégia mais dinâmica se for usado um plano Pro.
+
+O motor de decisão é projetado para estar ciente e utilizar o schema de dados conforme fornecido pela exchange/broker, tornando-o mais robusto e adaptável às condições do mundo real.
 
 ### Começando
 
