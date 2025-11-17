@@ -29,14 +29,24 @@ class CoinGeckoAdapter(MarketDataPort):
 
     def get_price_by_coin_id(self, coin_id: str) -> Optional[float]:
         request_url = f"{self.root}/simple/price?ids={coin_id}&vs_currencies=usd"
+        start_time = time.monotonic()
         try:
             response = requests.get(request_url, headers=self.headers, timeout=10)
             response.raise_for_status()
+            duration = time.monotonic() - start_time
+            logger.info(
+                "CoinGecko API call successful",
+                extra={"event": "api_call", "adapter": "coingecko", "endpoint": "/simple/price", "duration_ms": duration * 1000},
+            )
             time.sleep(10)  # Basic rate limiting
             data = response.json()
             return data.get(coin_id, {}).get("usd")
         except requests.exceptions.RequestException as e:
-            logger.error(f"CoinGecko API request failed for price of {coin_id}: {e}")
+            duration = time.monotonic() - start_time
+            logger.error(
+                f"CoinGecko API request failed for price of {coin_id}: {e}",
+                extra={"event": "api_error", "adapter": "coingecko", "endpoint": "/simple/price", "duration_ms": duration * 1000},
+            )
             return None
 
     def get_historic_ohlc_by_coin_id(
@@ -47,13 +57,23 @@ class CoinGeckoAdapter(MarketDataPort):
         interval: str = "hourly",
     ) -> List[list]:
         request_url = f"{self.root}/coins/{coin_id}/ohlc?vs_currency={vs_currency}&days={days}&interval={interval}"
+        start_time = time.monotonic()
         try:
             response = requests.get(request_url, headers=self.headers, timeout=10)
             response.raise_for_status()
+            duration = time.monotonic() - start_time
+            logger.info(
+                "CoinGecko API call successful",
+                extra={"event": "api_call", "adapter": "coingecko", "endpoint": "/coins/{id}/ohlc", "duration_ms": duration * 1000},
+            )
             time.sleep(10)  # Basic rate limiting
             return response.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"CoinGecko API request failed for OHLC of {coin_id}: {e}")
+            duration = time.monotonic() - start_time
+            logger.error(
+                f"CoinGecko API request failed for OHLC of {coin_id}: {e}",
+                extra={"event": "api_error", "adapter": "coingecko", "endpoint": "/coins/{id}/ohlc", "duration_ms": duration * 1000},
+            )
             return []
 
     def get_coins(self) -> List[Coin]:
@@ -61,9 +81,15 @@ class CoinGeckoAdapter(MarketDataPort):
             f"{self.root}/coins/markets?order=market_cap_desc&per_page=10"
             "&vs_currency=usd&price_change_percentage=1h"
         )
+        start_time = time.monotonic()
         try:
             response = requests.get(request_url, headers=self.headers, timeout=10)
             response.raise_for_status()
+            duration = time.monotonic() - start_time
+            logger.info(
+                "CoinGecko API call successful",
+                extra={"event": "api_call", "adapter": "coingecko", "endpoint": "/coins/markets", "duration_ms": duration * 1000},
+            )
             time.sleep(10)  # Basic rate limiting
             data = response.json()
             coins = []
@@ -80,7 +106,11 @@ class CoinGeckoAdapter(MarketDataPort):
                 coins.append(coin)
             return coins
         except requests.exceptions.RequestException as e:
-            logger.error(f"CoinGecko API request failed for market data: {e}")
+            duration = time.monotonic() - start_time
+            logger.error(
+                f"CoinGecko API request failed for market data: {e}",
+                extra={"event": "api_error", "adapter": "coingecko", "endpoint": "/coins/markets", "duration_ms": duration * 1000},
+            )
             return []
 
     def search_pools(
@@ -89,11 +119,21 @@ class CoinGeckoAdapter(MarketDataPort):
         request_url = f"{self.root}/onchain/search/pools?query={query}"
         if chain:
             request_url += f"&chain={chain}"
+        start_time = time.monotonic()
         try:
             response = requests.get(request_url, headers=self.headers, timeout=10)
             response.raise_for_status()
+            duration = time.monotonic() - start_time
+            logger.info(
+                "CoinGecko API call successful",
+                extra={"event": "api_call", "adapter": "coingecko", "endpoint": "/onchain/search/pools", "duration_ms": duration * 1000},
+            )
             time.sleep(10)  # Basic rate limiting
             return response.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"CoinGecko API request failed for pool search: {e}")
+            duration = time.monotonic() - start_time
+            logger.error(
+                f"CoinGecko API request failed for pool search: {e}",
+                extra={"event": "api_error", "adapter": "coingecko", "endpoint": "/onchain/search/pools", "duration_ms": duration * 1000},
+            )
             return {}

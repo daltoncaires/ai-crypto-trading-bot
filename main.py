@@ -3,9 +3,8 @@ Main entry point for the AI Crypto Trading Bot.
 
 This script acts as the 'Composition Root' for the application. It initializes
 all the adapters (for external services like APIs and databases), injects them
-into the core domain logic (the TradingBot), and starts the bot's execution cycle.
-This approach adheres to the Hexagonal Architecture pattern, keeping the core
-logic decoupled from the infrastructure.
+into the core domain logic (the Engine and its components), and starts the
+bot's execution cycle.
 """
 
 from __future__ import annotations
@@ -15,7 +14,9 @@ import os
 import sys
 from typing import Iterable
 
-from domain.trading_bot import BotDependencies, TradingBot
+from domain.engine import Engine
+from domain.evaluator import Evaluator
+from domain.strategy import Strategy
 from infrastructure.adapters.coingecko_adapter import CoinGeckoAdapter
 from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
 from infrastructure.adapters.openai_adapter import OpenAIAdapter
@@ -28,19 +29,18 @@ logger = get_logger(__name__)
 
 # --- File Paths for JSON Storage Adapter ---
 BASE_DIR = os.path.dirname(__file__)
-COINS_FILE = os.path.join(BASE_DIR, "data/coins.json")
-ORDERS_FILE = os.path.join(BASE_DIR, "data/orders.json")
-PORTFOLIO_FILE = os.path.join(BASE_DIR, "data/portfolio.json")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+COINS_FILE = os.path.join(DATA_DIR, "coins.json")
+ORDERS_FILE = os.path.join(DATA_DIR, "orders.json")
+PORTFOLIO_FILE = os.path.join(DATA_DIR, "portfolio.json")
 
 
 def bootstrap_data(refresh_prices: bool = True) -> None:
     """
     Ensures data stores are initialized and optionally refreshes market data.
-    This function is part of the application setup, not core domain logic.
     """
     logger.info("Bootstrapping data...")
-    # The workers are tightly coupled to the JSON file structure for now.
-    # In a more advanced system, they might also use ports.
+    os.makedirs(DATA_DIR, exist_ok=True)
     initialize_coin_data(COINS_FILE)
     if refresh_prices:
         update_coin_prices(COINS_FILE)
@@ -74,7 +74,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     """
     args = parse_args(argv if argv is not None else sys.argv[1:])
 
-    # 1. Initialize Adapters (the "Right Side" of the hexagon)
+    # 1. Initialize Adapters (Infrastructure)
     logger.info("Initializing infrastructure adapters...")
     storage_adapter = JSONStorageAdapter(
         coins_file=COINS_FILE,
@@ -84,20 +84,29 @@ def main(argv: Iterable[str] | None = None) -> None:
     market_data_adapter = CoinGeckoAdapter()
     decision_engine_adapter = OpenAIAdapter()
 
-    # 2. Prepare Dependencies for Injection
-    dependencies = BotDependencies(
+    # 2. Initialize Domain Components
+    logger.info("Initializing core domain components...")
+    evaluator = Evaluator(market_data=market_data_adapter, config=settings)
+    strategy = Strategy(
         storage=storage_adapter,
-        market_data=market_data_adapter,
         decision_engine=decision_engine_adapter,
+        config=settings,
     )
 
     # 3. Bootstrap application data
     bootstrap_data(refresh_prices=not args.skip_refresh)
 
-    # 4. Initialize and run the Core Domain Logic (the "Hexagon")
-    logger.info("Initializing core trading bot domain...")
-    bot = TradingBot(dependencies, settings, loop_interval=args.interval)
-    bot.run(run_once=args.once)
+    # 4. Initialize and run the Core Trading Engine
+    logger.info("Initializing core trading engine...")
+    engine = Engine(
+        storage=storage_adapter,
+        market_data=market_data_adapter,
+        evaluator=evaluator,
+        strategy=strategy,
+        config=settings,
+        loop_interval=args.interval,
+    )
+    engine.run(run_once=args.once)
 
 
 if __name__ == "__main__":
