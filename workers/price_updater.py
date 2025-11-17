@@ -4,6 +4,7 @@ from domain.models.coin import Coin
 from infrastructure.adapters.coingecko_adapter import CoinGeckoAdapter
 from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
 from utils.logger import get_logger
+from utils.load_env import settings # Import settings
 
 logger = get_logger(__name__)
 
@@ -39,7 +40,7 @@ def update_coin_prices(coins_file: str) -> List[Coin]:
     logger.info("Starting coin price update process...")
     # This worker also needs its own adapter instances.
     storage = JSONStorageAdapter(coins_file=coins_file, orders_file="", portfolio_file="")
-    market_data = CoinGeckoAdapter()
+    market_data = CoinGeckoAdapter(config=settings) # Pass settings to CoinGeckoAdapter
 
     local_coins = storage.get_all_coins()
     local_coin_ids = {c.coin_id for c in local_coins}

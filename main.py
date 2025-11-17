@@ -1,3 +1,4 @@
+
 """
 Main entry point for the AI Crypto Trading Bot.
 
@@ -7,6 +8,16 @@ into the core domain logic (the Engine and its components), and starts the
 bot's execution cycle.
 """
 
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from typing import Iterable
+
+# from dataclasses import replace # No longer needed if not using temp_settings
+from domain.plugin_loader import load_plugin # New import
+# Removed direct imports of Engine, Evaluator, Strategy
 from infrastructure.adapters.coingecko_adapter import CoinGeckoAdapter
 from infrastructure.adapters.binance_adapter import BinanceAdapter
 from infrastructure.adapters.multi_market_data_adapter import MultiMarketDataAdapter

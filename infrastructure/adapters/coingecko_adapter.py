@@ -10,8 +10,8 @@ import requests
 
 from domain.models.coin import Coin
 from domain.ports.market_data_port import MarketDataPort
-from utils.load_env import settings
-from utils.logger import get_logger
+from utils.load_env import Settings # Import Settings
+from utils.logger import get_logger # Moved to top
 
 logger = get_logger(__name__)
 
@@ -19,11 +19,12 @@ logger = get_logger(__name__)
 class CoinGeckoAdapter(MarketDataPort):
     """An adapter for the CoinGecko API that implements the MarketDataPort."""
 
-    def __init__(self):
+    def __init__(self, config: Settings):
+        self.config = config
         self.root = "https://api.coingecko.com/api/v3"
         self.headers = {
             "accept": "application/json",
-            "x-cg-demo-api-key": settings.cg_api_key,
+            "x-cg-demo-api-key": self.config.cg_api_key,
         }
         logger.info("CoinGecko adapter initialized.")
 

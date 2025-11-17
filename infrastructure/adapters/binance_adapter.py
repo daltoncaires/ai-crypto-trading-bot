@@ -22,10 +22,10 @@ class BinanceAdapter(MarketDataPort):
         self.config = config
         # Initialize Binance API client here
         # self.client = Client(config.binance_api_key, config.binance_api_secret)
-        logger.info("BinanceAdapter initialized. (Note: Actual API client not integrated yet.)")
+        logger.info(f"BinanceAdapter initialized with API Key: {self.config.binance_api_key[:5]}... (Note: Actual API client not integrated yet.)")
 
     def get_price_by_coin_id(self, coin_id: str) -> Optional[float]:
-        logger.debug(f"BinanceAdapter: Fetching price for {coin_id}")
+        logger.debug(f"BinanceAdapter: Fetching price for {coin_id}", extra={"event": "api_call", "adapter": "binance", "endpoint": "get_price_by_coin_id"})
         # Placeholder for actual Binance API call
         # Example: return self.client.get_symbol_ticker(symbol=coin_id.upper() + 'USDT')['price']
         return None # Or a dummy value for now
@@ -37,18 +37,18 @@ class BinanceAdapter(MarketDataPort):
         days: int = 1,
         interval: str = "hourly",
     ) -> List[list]:
-        logger.debug(f"BinanceAdapter: Fetching historical OHLC for {coin_id}")
+        logger.debug(f"BinanceAdapter: Fetching historical OHLC for {coin_id}", extra={"event": "api_call", "adapter": "binance", "endpoint": "get_historic_ohlc_by_coin_id"})
         # Placeholder for actual Binance API call
         return []
 
     def get_coins(self) -> List[Coin]:
-        logger.debug("BinanceAdapter: Fetching list of coins")
+        logger.debug("BinanceAdapter: Fetching list of coins", extra={"event": "api_call", "adapter": "binance", "endpoint": "get_coins"})
         # Placeholder for actual Binance API call
         # This might involve fetching all tradable symbols and converting to Coin objects
         return []
 
     def search_pools(self, query: str | None = None, chain: str | None = None) -> Dict[str, Any]:
-        logger.debug(f"BinanceAdapter: Searching pools for query={query}, chain={chain}")
+        logger.debug(f"BinanceAdapter: Searching pools for query={query}, chain={chain}", extra={"event": "api_call", "adapter": "binance", "endpoint": "search_pools"})
         # Binance API might not have a direct equivalent for "liquidity pools" like CoinGecko.
         # This method might need to be adapted or return empty/NotImplementedError.
         return {}

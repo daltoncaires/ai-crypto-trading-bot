@@ -61,6 +61,8 @@ class Settings:
     shadow_strategy_class: Optional[str]
     coingecko_enabled: bool
     binance_enabled: bool
+    binance_api_key: str
+    binance_api_secret: str
 
 
 def _read_env_float(var_name: str, default: Optional[float] = None) -> float:
@@ -80,7 +82,6 @@ def _load_prompt_template(path: Optional[str]) -> str:
     default_prompt = (
         "Given the following crypto data, should I BUY, SELL, or HOLD? "
         "Provide a brief justification for your decision. "
-        "Context: {context}"
     )
     if not path:
         print("--- PROMPT_TEMPLATE env var not set, using default prompt. ---")
@@ -145,6 +146,8 @@ def load_settings() -> Settings:
         shadow_strategy_class=os.getenv("SHADOW_STRATEGY_CLASS"),
         coingecko_enabled=os.getenv("COINGECKO_ENABLED", "True").lower() == "true",
         binance_enabled=os.getenv("BINANCE_ENABLED", "False").lower() == "true",
+        binance_api_key=os.getenv("BN_API_KEY", ""),
+        binance_api_secret=os.getenv("BN_API_SECRET", ""),
     )
     return settings
 
