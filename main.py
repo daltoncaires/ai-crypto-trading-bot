@@ -14,10 +14,9 @@ import os
 import sys
 from typing import Iterable
 
-from dataclasses import replace
-from domain.engine import Engine
-from domain.evaluator import Evaluator
-from domain.strategy import Strategy
+# from dataclasses import replace # No longer needed if not using temp_settings
+from domain.plugin_loader import load_plugin # New import
+# Removed direct imports of Engine, Evaluator, Strategy
 from infrastructure.adapters.coingecko_adapter import CoinGeckoAdapter
 from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
 from infrastructure.adapters.openai_adapter import OpenAIAdapter
@@ -87,8 +86,18 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     # 2. Initialize Domain Components
     logger.info("Initializing core domain components...")
-    evaluator = Evaluator(market_data=market_data_adapter, config=settings)
-    strategy = Strategy(
+
+    # Dynamically load Evaluator
+    EvaluatorClass = load_plugin(
+        settings.evaluator_module, settings.evaluator_class, settings.evaluator_version
+    )
+    evaluator = EvaluatorClass(market_data=market_data_adapter, config=settings)
+
+    # Dynamically load Strategy
+    StrategyClass = load_plugin(
+        settings.strategy_module, settings.strategy_class, settings.strategy_version
+    )
+    strategy = StrategyClass(
         storage=storage_adapter,
         decision_engine=decision_engine_adapter,
         config=settings,
@@ -99,7 +108,9 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     # 4. Initialize and run the Core Trading Engine
     logger.info("Initializing core trading engine...")
-    engine = Engine(
+    # Dynamically load Engine
+    EngineClass = load_plugin(settings.engine_module, settings.engine_class)
+    engine = EngineClass(
         storage=storage_adapter,
         market_data=market_data_adapter,
         evaluator=evaluator,

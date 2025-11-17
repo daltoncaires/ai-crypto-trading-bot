@@ -17,16 +17,30 @@ This is a minimal, modular AI-powered crypto trading bot for learning, experimen
 - Includes a backtesting module to evaluate AI-driven strategies on historical data.
 - All configuration is handled via environment variables for easy tuning.
 - **API-Driven Configuration**: Adapts to the available data from the CoinGecko API, ensuring resilience to changes and gracefully handling missing data points.
+- **Component Versioning**: Supports dynamic loading of different versions of core components (Evaluator, Strategy) via environment variables, enabling A/B testing and phased rollouts.
+- **Shadow Mode**: Allows a new version of a component to run in parallel with the production version, processing the same inputs and logging its outputs without affecting live trading decisions. This is crucial for safely testing and validating new component versions in a production-like environment.
 
-### API-Driven Configuration (Schema Discovery)
-A core principle of this bot is to adapt to the data provided by the external API (CoinGecko). Instead of relying on hardcoded parameters, the bot discovers available information, such as the list of top coins, and adjusts its behavior accordingly.
+### Component Versioning & Shadow Mode
+The bot supports dynamic loading of different component versions and a "shadow mode" for safe testing.
 
-This approach provides several advantages:
-- **Resilience**: The bot is less likely to break if the API schema changes or if certain data points are temporarily unavailable.
-- **Adaptability**: The bot automatically incorporates new coins as they enter the top market cap rankings.
-- **Dynamic Rate Limiting**: While the CoinGecko Demo API does not provide rate limit headers, the bot uses a conservative delay between API calls to avoid `429 Too Many Requests` errors. This can be extended to a more dynamic strategy if using a Pro plan.
+#### Component Versioning
+You can specify which version of the `Evaluator` and `Strategy` components the bot should use by setting the following environment variables in your `.env` file:
+- `EVALUATOR_VERSION`: (Default: `v1`) Set to `v1`, `v2`, or any custom version string. The bot will attempt to load `EvaluatorV<VERSION>` (e.g., `EvaluatorV2`). If the versioned class is not found, it falls back to the unversioned `Evaluator` class.
+- `STRATEGY_VERSION`: (Default: `v1`) Similar to `EVALUATOR_VERSION`, set to `v1`, `v2`, etc. The bot will attempt to load `StrategyV<VERSION>` (e.g., `StrategyV2`).
 
-The decision-making engine is designed to be aware of and utilize the data schema as provided by the exchange/broker, making it more robust and adaptable to real-world conditions.
+To create a new version, simply create a new Python file (e.g., `domain/evaluator_v2.py`) and define your class as `EvaluatorV2` (or `StrategyV2`).
+
+#### Shadow Mode
+Shadow mode allows you to run an alternative version of your `Evaluator` and `Strategy` components in parallel with your live trading components. The shadow components receive the same inputs as the production components, execute their logic, and log their results, but their decisions do NOT affect live trades. This is invaluable for testing new features or optimizations in a production environment without risk.
+
+To enable and configure shadow mode, set the following environment variables in your `.env` file:
+- `SHADOW_MODE_ENABLED`: Set to `"True"` to enable shadow mode. (Default: `"False"`)
+- `SHADOW_EVALUATOR_MODULE`: (Optional) The module path for the shadow Evaluator (e.g., `domain.evaluator_v2`). If not set, it defaults to the production `EVALUATOR_MODULE`.
+- `SHADOW_EVALUATOR_CLASS`: (Optional) The class name for the shadow Evaluator (e.g., `EvaluatorV2`). If not set, it defaults to the production `EVALUATOR_CLASS`.
+- `SHADOW_STRATEGY_MODULE`: (Optional) The module path for the shadow Strategy (e.g., `domain.strategy_v2`). If not set, it defaults to the production `STRATEGY_MODULE`.
+- `SHADOW_STRATEGY_CLASS`: (Optional) The class name for the shadow Strategy (e.g., `StrategyV2`). If not set, it defaults to the production `STRATEGY_CLASS`.
+
+When shadow mode is enabled, the bot will log the decisions and outcomes of both the production and shadow components, allowing you to compare their behavior.
 
 ### Getting Started
 
@@ -115,16 +129,30 @@ Este é um bot de negociação de criptomoedas minimalista e modular, alimentado
 - Inclui um módulo de backtesting para avaliar estratégias orientadas por IA em dados históricos.
 - Toda a configuração é tratada por meio de variáveis de ambiente para fácil ajuste.
 - **Configuração Orientada à API**: Adapta-se aos dados disponíveis da API do CoinGecko, garantindo resiliência a mudanças e lidando de forma elegante com pontos de dados ausentes.
+- **Versionamento de Componentes**: Suporta o carregamento dinâmico de diferentes versões dos componentes principais (Evaluator, Strategy) através de variáveis de ambiente, permitindo testes A/B e lançamentos faseados.
+- **Modo Sombra (Shadow Mode)**: Permite que uma nova versão de um componente seja executada em paralelo com a versão de produção, processando as mesmas entradas e registrando suas saídas sem afetar as decisões de negociação ao vivo. Isso é crucial para testar e validar com segurança novas versões de componentes em um ambiente semelhante ao de produção.
 
-### Configuração Orientada à API (Schema Discovery)
-Um princípio central deste bot é se adaptar aos dados fornecidos pela API externa (CoinGecko). Em vez de depender de parâmetros fixos no código, o bot descobre as informações disponíveis, como a lista das principais moedas, e ajusta seu comportamento de acordo.
+### Versionamento de Componentes e Modo Sombra
+O bot suporta o carregamento dinâmico de diferentes versões de componentes e um "modo sombra" para testes seguros.
 
-Esta abordagem oferece várias vantagens:
-- **Resiliência**: O bot é menos propenso a quebrar se o schema da API mudar ou se certos pontos de dados estiverem temporariamente indisponíveis.
-- **Adaptabilidade**: O bot incorpora automaticamente novas moedas à medida que elas entram no ranking de maior capitalização de mercado.
-- **Limitação de Taxa Dinâmica**: Embora a API de demonstração do CoinGecko não forneça cabeçalhos de limite de taxa, o bot usa um atraso conservador entre as chamadas de API para evitar erros `429 Too Many Requests`. Isso pode ser estendido para uma estratégia mais dinâmica se for usado um plano Pro.
+#### Versionamento de Componentes
+Você pode especificar qual versão dos componentes `Evaluator` e `Strategy` o bot deve usar definindo as seguintes variáveis de ambiente no seu arquivo `.env`:
+- `EVALUATOR_VERSION`: (Padrão: `v1`) Defina como `v1`, `v2` ou qualquer string de versão personalizada. O bot tentará carregar `EvaluatorV<VERSAO>` (por exemplo, `EvaluatorV2`). Se a classe versionada não for encontrada, ele retornará à classe `Evaluator` sem versão.
+- `STRATEGY_VERSION`: (Padrão: `v1`) Semelhante a `EVALUATOR_VERSION`, defina como `v1`, `v2`, etc. O bot tentará carregar `StrategyV<VERSAO>` (por exemplo, `StrategyV2`).
 
-O motor de decisão é projetado para estar ciente e utilizar o schema de dados conforme fornecido pela exchange/broker, tornando-o mais robusto e adaptável às condições do mundo real.
+Para criar uma nova versão, basta criar um novo arquivo Python (por exemplo, `domain/evaluator_v2.py`) e definir sua classe como `EvaluatorV2` (ou `StrategyV2`).
+
+#### Modo Sombra (Shadow Mode)
+O modo sombra permite que você execute uma versão alternativa dos seus componentes `Evaluator` e `Strategy` em paralelo com seus componentes de negociação ao vivo. Os componentes sombra recebem as mesmas entradas que os componentes de produção, executam sua lógica e registram suas saídas, mas suas decisões NÃO afetam as negociações ao vivo. Isso é inestimável para testar novas funcionalidades ou otimizações em um ambiente de produção sem riscos.
+
+Para habilitar e configurar o modo sombra, defina as seguintes variáveis de ambiente no seu arquivo `.env`:
+- `SHADOW_MODE_ENABLED`: Defina como `"True"` para habilitar o modo sombra. (Padrão: `"False"`)
+- `SHADOW_EVALUATOR_MODULE`: (Opcional) O caminho do módulo para o Evaluator sombra (por exemplo, `domain.evaluator_v2`). Se não for definido, o padrão é o `EVALUATOR_MODULE` de produção.
+- `SHADOW_EVALUATOR_CLASS`: (Opcional) O nome da classe para o Evaluator sombra (por exemplo, `EvaluatorV2`). Se não for definido, o padrão é o `EVALUATOR_CLASS` de produção.
+- `SHADOW_STRATEGY_MODULE`: (Opcional) O caminho do módulo para a Strategy sombra (por exemplo, `domain.strategy_v2`). Se não for definido, o padrão é o `STRATEGY_MODULE` de produção.
+- `SHADOW_STRATEGY_CLASS`: (Opcional) O nome da classe para a Strategy sombra (por exemplo, `StrategyV2`). Se não for definido, o padrão é o `STRATEGY_CLASS` de produção.
+
+Quando o modo sombra está habilitado, o bot registrará as decisões e os resultados dos componentes de produção e sombra, permitindo que você compare seus comportamentos.
 
 ### Começando
 

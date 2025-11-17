@@ -46,6 +46,19 @@ class Settings:
     prompt_template: str
     trade: TradeSettings
     pool: PoolSafetySettings
+    engine_module: str
+    engine_class: str
+    evaluator_module: str
+    evaluator_class: str
+    evaluator_version: str
+    strategy_module: str
+    strategy_class: str
+    strategy_version: str
+    shadow_mode_enabled: bool
+    shadow_evaluator_module: Optional[str]
+    shadow_evaluator_class: Optional[str]
+    shadow_strategy_module: Optional[str]
+    shadow_strategy_class: Optional[str]
 
 
 def _read_env_float(var_name: str, default: Optional[float] = None) -> float:
@@ -116,6 +129,19 @@ def load_settings() -> Settings:
             min_reserves_usd=_read_env_float("MIN_RESERVES_USD"),
             min_buys_24h=_read_env_float("MIN_BUYS_24H"),
         ),
+        engine_module=os.getenv("ENGINE_MODULE", "domain.engine"),
+        engine_class=os.getenv("ENGINE_CLASS", "Engine"),
+        evaluator_module=os.getenv("EVALUATOR_MODULE", "domain.evaluator"),
+        evaluator_class=os.getenv("EVALUATOR_CLASS", "Evaluator"),
+        evaluator_version=os.getenv("EVALUATOR_VERSION", "v1"),
+        strategy_module=os.getenv("STRATEGY_MODULE", "domain.strategy"),
+        strategy_class=os.getenv("STRATEGY_CLASS", "Strategy"),
+        strategy_version=os.getenv("STRATEGY_VERSION", "v1"),
+        shadow_mode_enabled=os.getenv("SHADOW_MODE_ENABLED", "False").lower() == "true",
+        shadow_evaluator_module=os.getenv("SHADOW_EVALUATOR_MODULE"),
+        shadow_evaluator_class=os.getenv("SHADOW_EVALUATOR_CLASS"),
+        shadow_strategy_module=os.getenv("SHADOW_STRATEGY_MODULE"),
+        shadow_strategy_class=os.getenv("SHADOW_STRATEGY_CLASS"),
     )
     return settings
 
