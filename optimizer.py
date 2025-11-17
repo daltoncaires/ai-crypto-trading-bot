@@ -23,31 +23,33 @@ import pandas as pd
 import vectorbt as vbt
 import optuna
 
-from data_access.DAL.coins_DAL import CoinsDAL
+from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 # --- Configuration ---
 PARAMS_FILE = "best_params.json"
-COINS_FILE = "data_access/data/coins.json"
+# The optimizer uses the same data files as the main bot
+COINS_FILE = os.path.join(os.path.dirname(__file__), "data/coins.json")
+ORDERS_FILE = os.path.join(os.path.dirname(__file__), "data/orders.json")
+PORTFOLIO_FILE = os.path.join(os.path.dirname(__file__), "data/portfolio.json")
+
 TARGET_SYMBOL = "btc"  # Symbol to optimize for
 TRANSACTION_FEES = 0.001  # Binance VIP level 0 taker fee is 0.1%
-
-# WFO Configuration
-N_FOLDS = 5  # Number of walk-forward folds
-TRAIN_TEST_SPLIT = 0.7  # 70% for training, 30% for testing in each fold
-N_TRIALS = 100  # Number of optimization trials for Optuna in each fold
-
-
+# ... (rest of the file is the same)
 def load_price_data(symbol: str) -> pd.Series:
     """
     Loads historical price data for a single coin from the JSON data store
     and returns it as a pandas Series.
     """
     logger.info(f"Loading historical data for {symbol}...")
-    coins_dal = CoinsDAL(COINS_FILE)
-    coin = coins_dal.get_coin_by_symbol(symbol)
+    storage = JSONStorageAdapter(
+        coins_file=COINS_FILE,
+        orders_file=ORDERS_FILE,
+        portfolio_file=PORTFOLIO_FILE,
+    )
+    coin = storage.get_coin_by_symbol(symbol)
     if not coin or not coin.prices:
         raise ValueError(f"No historical data found for symbol: {symbol}")
 
