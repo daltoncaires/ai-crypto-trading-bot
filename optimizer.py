@@ -1,0 +1,154 @@
+"""
+Walk-Forward Optimizer for the AI Crypto Trading Bot.
+
+This module implements a Walk-Forward Optimization (WFO) framework to find and
+validate trading strategy parameters over time, preventing overfitting and
+providing a more realistic performance assessment.
+
+Core Concepts Implemented:
+- Vectorized Backtesting with `vectorbt`: For high-speed performance
+  calculations, including realistic costs.
+- Walk-Forward Optimization (WFO): To simulate real-world performance by
+  training on past data and validating on unseen future data.
+- (Future) Hyperparameter Optimization with `Optuna`: To find the best
+  strategy parameters in each training window.
+- (Future) Flywheel Effect: The best parameters found can be saved and used as
+  new defaults for the live trading bot.
+"""
+
+import numpy as np
+import pandas as pd
+import vectorbt as vbt
+
+from data_access.DAL.coins_DAL import CoinsDAL
+
+# --- Configuration ---
+COINS_FILE = "data_access/data/coins.json"
+TARGET_SYMBOL = "btc"  # Symbol to optimize for
+TRANSACTION_FEES = 0.001  # Binance VIP level 0 taker fee is 0.1%
+
+# WFO Configuration
+N_FOLDS = 5  # Number of walk-forward folds
+TRAIN_TEST_SPLIT = 0.7  # 70% for training, 30% for testing in each fold
+
+
+def load_price_data(symbol: str) -> pd.Series:
+    """
+    Loads historical price data for a single coin from the JSON data store
+    and returns it as a pandas Series.
+    """
+    print(f"Loading historical data for {symbol}...")
+    coins_dal = CoinsDAL(COINS_FILE)
+    coin = coins_dal.get_coin_by_symbol(symbol)
+    if not coin or not coin.prices:
+        raise ValueError(f"No historical data found for symbol: {symbol}")
+
+    # Convert to DataFrame and set a proper DatetimeIndex
+    df = pd.DataFrame(coin.prices, columns=["timestamp", "open", "high", "low", "close"])
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
+    df = df.set_index("timestamp")
+    df = df.sort_index()
+
+    # vectorbt works with Series, so we'll use the closing price
+    price_series = df["close"]
+    print(f"Loaded {len(price_series)} data points for {symbol}.")
+    return price_series
+
+
+def run_backtest(price_series: pd.Series, params: dict) -> vbt.Portfolio:
+    """
+    Runs a vectorized backtest for a given price series and strategy parameters.
+
+    NOTE: This is a placeholder for the real strategy. The AI-driven,
+    per-datapoint decision logic is not easily vectorizable. This example uses
+    a simple Moving Average Crossover strategy to demonstrate the `vectorbt`
+    and WFO structure.
+    """
+    fast_ma = vbt.MA.run(price_series, params["fast_window"], short_name="fast")
+    slow_ma = vbt.MA.run(price_series, params["slow_window"], short_name="slow")
+
+    entries = fast_ma.ma_crossed_above(slow_ma)
+    exits = fast_ma.ma_crossed_below(slow_ma)
+
+    portfolio = vbt.Portfolio.from_signals(
+        price_series,
+        entries,
+        exits,
+        fees=TRANSACTION_FEES,
+        sl_stop=params["stop_loss"],
+        tp_stop=params["take_profit"],
+        freq="D",  # Assuming daily frequency for now
+    )
+    return portfolio
+
+
+def run_wfo(price_series: pd.Series):
+    """
+    Orchestrates the Walk-Forward Optimization process.
+    """
+    print("\n--- Starting Walk-Forward Optimization ---")
+
+    # Use vectorbt's built-in splitter for robust windowing
+    splitter = vbt.Splitter.from_rolling(
+        price_series,
+        N_FOLDS,
+        min_len=int(len(price_series) / N_FOLDS),
+        train_test_split=TRAIN_TEST_SPLIT,
+    )
+
+    fold_results = []
+
+    for i, (train_idx, test_idx) in enumerate(splitter.split()):
+        print(f"\n--- Processing Fold {i+1}/{N_FOLDS} ---")
+
+        train_prices = price_series.iloc[train_idx]
+        test_prices = price_series.iloc[test_idx]
+
+        print(
+            f"Train period: {train_prices.index[0]} to {train_prices.index[-1]} "
+            f"({len(train_prices)} points)"
+        )
+        print(
+            f"Test period:  {test_prices.index[0]} to {test_prices.index[-1]} "
+            f"({len(test_prices)} points)"
+        )
+
+        # --- Optimization Step (Placeholder) ---
+        # In the next iteration, we will use Optuna here to find the best params
+        # For now, we use fixed "best" parameters as a placeholder.
+        print("Skipping optimization, using fixed placeholder parameters.")
+        best_params = {
+            "fast_window": 21,
+            "slow_window": 50,
+            "stop_loss": 0.10,  # 10%
+            "take_profit": 0.20,  # 20%
+        }
+
+        # --- Validation Step ---
+        print("Validating parameters on out-of-sample test data...")
+        test_portfolio = run_backtest(test_prices, best_params)
+        fold_return = test_portfolio.total_return()
+        fold_results.append(fold_return)
+
+        print(f"Fold {i+1} Out-of-Sample Return: {fold_return:.2%}")
+        print(f"Total Trades: {test_portfolio.trades.count()}")
+
+    # --- Final Report ---
+    total_return = np.prod([1 + r for r in fold_results]) - 1
+    print("\n--- WFO Final Results ---")
+    print(f"Analyzed {N_FOLDS} folds.")
+    print(f"Total Out-of-Sample Return: {total_return:.2%}")
+    print(f"Average Fold Return: {np.mean(fold_results):.2%}")
+
+
+if __name__ == "__main__":
+    try:
+        prices = load_price_data(TARGET_SYMBOL)
+        run_wfo(prices)
+    except (ValueError, FileNotFoundError) as e:
+        print(f"Error: {e}")
+        print(
+            "Please ensure 'data_access/data/coins.json' exists and contains "
+            f"historical data for the symbol '{TARGET_SYMBOL}'."
+        )
+        print("You can generate it by running the main bot once.")

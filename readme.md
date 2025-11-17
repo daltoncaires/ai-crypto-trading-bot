@@ -74,6 +74,13 @@ To backtest a strategy on a single coin, run the `backtest.py` script and enter 
 python backtest.py
 ```
 
+#### Optimization
+To run the Walk-Forward Optimizer and evaluate the strategy's performance realistically, run the `optimizer.py` script:
+```bash
+python optimizer.py
+```
+This will test the strategy on historical data, providing a more robust performance assessment than a simple backtest and laying the groundwork for hyperparameter tuning.
+
 ### Risk Mitigation & Disclaimer
 AI-powered trading involves significant risks. While this bot includes basic safety checks, it is not foolproof.
 - **Always start with paper trading.**
@@ -164,6 +171,13 @@ Para testar uma estratégia em uma única moeda, execute o script `backtest.py` 
 ```bash
 python backtest.py
 ```
+
+#### Otimização
+Para executar o Otimizador Walk-Forward e avaliar o desempenho da estratégia de forma realista, execute o script `optimizer.py`:
+```bash
+python optimizer.py
+```
+Isso testará a estratégia em dados históricos, fornecendo uma avaliação de desempenho mais robusta do que um simples backtest e preparando o terreno para o ajuste de hiperparâmetros.
 
 ### Mitigação de Riscos & Aviso Legal
 A negociação com IA envolve riscos significativos. Embora este bot inclua verificações básicas de segurança, ele não é infalível.

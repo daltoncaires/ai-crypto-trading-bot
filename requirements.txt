@@ -3,7 +3,6 @@ anyio==4.10.0
 certifi==2025.8.3
 charset-normalizer==3.4.3
 colorama==0.4.6
-dataclass-wizard==0.35.1
 distro==1.9.0
 h11==0.16.0
 httpcore==1.0.9
@@ -21,3 +20,7 @@ typing-inspection==0.4.1
 typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
+pandas
+vectorbt
+optuna
+ray
