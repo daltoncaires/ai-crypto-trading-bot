@@ -12,10 +12,11 @@ Core Concepts Implemented:
   training on past data and validating on unseen future data.
 - Hyperparameter Optimization with `Optuna`: To find the best
   strategy parameters in each training window.
-- (Future) Flywheel Effect: The best parameters found can be saved and used as
+- Flywheel Effect: The best parameters found are saved and can be used as
   new defaults for the live trading bot.
 """
 
+import json
 import numpy as np
 import pandas as pd
 import vectorbt as vbt
@@ -24,6 +25,7 @@ import optuna
 from data_access.DAL.coins_DAL import CoinsDAL
 
 # --- Configuration ---
+PARAMS_FILE = "best_params.json"
 COINS_FILE = "data_access/data/coins.json"
 TARGET_SYMBOL = "btc"  # Symbol to optimize for
 TRANSACTION_FEES = 0.001  # Binance VIP level 0 taker fee is 0.1%
@@ -31,7 +33,7 @@ TRANSACTION_FEES = 0.001  # Binance VIP level 0 taker fee is 0.1%
 # WFO Configuration
 N_FOLDS = 5  # Number of walk-forward folds
 TRAIN_TEST_SPLIT = 0.7  # 70% for training, 30% for testing in each fold
-N_TRIALS = 100 # Number of optimization trials for Optuna in each fold
+N_TRIALS = 100  # Number of optimization trials for Optuna in each fold
 
 
 def load_price_data(symbol: str) -> pd.Series:
@@ -99,6 +101,7 @@ def run_wfo(price_series: pd.Series):
     )
 
     fold_results = []
+    latest_best_params = {}
 
     for i, (train_idx, test_idx) in enumerate(splitter.split()):
         print(f"\n--- Processing Fold {i+1}/{N_FOLDS} ---")
@@ -129,22 +132,21 @@ def run_wfo(price_series: pd.Series):
 
             # Ensure fast_window is smaller than slow_window
             if params["fast_window"] >= params["slow_window"]:
-                return -1.0 # Return a poor score to prune this trial
+                return -1.0  # Return a poor score to prune this trial
 
             portfolio = run_backtest(train_prices, params)
             return portfolio.total_return()
 
         print(f"Running Optuna optimization for {N_TRIALS} trials...")
         study = optuna.create_study(
-            direction="maximize",
-            pruner=optuna.pruners.MedianPruner()
+            direction="maximize", pruner=optuna.pruners.MedianPruner()
         )
-        study.optimize(objective, n_trials=N_TRIALS, n_jobs=-1) # Use all available CPU cores
+        study.optimize(objective, n_trials=N_TRIALS, n_jobs=-1)  # Use all available CPU cores
 
         best_params = study.best_params
+        latest_best_params = best_params
         print(f"Optimization complete. Best Return: {study.best_value:.2%}")
         print(f"Best Parameters: {best_params}")
-
 
         # --- Validation Step ---
         print("Validating parameters on out-of-sample test data...")
@@ -154,6 +156,14 @@ def run_wfo(price_series: pd.Series):
 
         print(f"Fold {i+1} Out-of-Sample Return: {fold_return:.2%}")
         print(f"Total Trades: {test_portfolio.trades.count()}")
+
+    # --- Save latest parameters for the Flywheel Effect ---
+    if latest_best_params:
+        print("\n--- Saving latest optimal parameters for live bot ---")
+        # These are the parameters found on the most recent training data
+        with open(PARAMS_FILE, "w") as f:
+            json.dump(latest_best_params, f, indent=2)
+        print(f"Saved parameters to {PARAMS_FILE}")
 
     # --- Final Report ---
     total_return = np.prod([1 + r for r in fold_results]) - 1
@@ -166,7 +176,7 @@ def run_wfo(price_series: pd.Series):
 if __name__ == "__main__":
     # Suppress Optuna's informational messages
     optuna.logging.set_verbosity(optuna.logging.WARNING)
-    
+
     try:
         prices = load_price_data(TARGET_SYMBOL)
         run_wfo(prices)

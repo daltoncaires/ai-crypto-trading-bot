@@ -50,6 +50,7 @@ Thumbs.db
 # Docker and environment files
 *.env
 docker-compose.override.yml
+best_params.json
 
 # Miscellaneous
 *.swp
