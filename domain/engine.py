@@ -72,8 +72,6 @@ class Engine:
                 logger.warning(f"Unable to fetch price for {coin.symbol}, skipping.")
                 continue
 
-            self.storage.update_coin_price_change(coin.symbol, coin.price_change)
-
             safe_pools = self.evaluator.check_liquidity_pools(coin)
             if not safe_pools:
                 logger.debug(f"No safe pools found for {coin.symbol}, skipping buy evaluation.")

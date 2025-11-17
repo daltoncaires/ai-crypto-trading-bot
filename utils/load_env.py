@@ -101,7 +101,7 @@ def load_settings() -> Settings:
             optimized_params = json.load(f)
 
         # Create a new TradeSettings instance with overridden values
-        # The `replace` function from dataclasses is perfect for this
+            # The `replace` function from dataclasses is perfect for this
         trade_settings = replace(trade_settings, **optimized_params)
         print(f"--- Overridden trade settings: {trade_settings} ---")
 

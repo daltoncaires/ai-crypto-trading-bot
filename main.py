@@ -14,6 +14,7 @@ import os
 import sys
 from typing import Iterable
 
+from dataclasses import replace
 from domain.engine import Engine
 from domain.evaluator import Evaluator
 from domain.strategy import Strategy
