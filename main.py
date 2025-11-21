@@ -17,10 +17,7 @@ from typing import Iterable
 
 # from dataclasses import replace # No longer needed if not using temp_settings
 from domain.plugin_loader import load_plugin # New import
-# Removed direct imports of Engine, Evaluator, Strategy
-from infrastructure.adapters.coingecko_adapter import CoinGeckoAdapter
-from infrastructure.adapters.binance_adapter import BinanceAdapter
-from infrastructure.adapters.multi_market_data_adapter import MultiMarketDataAdapter
+from infrastructure.adapters.market_data_factory import get_market_data_adapter
 from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
 from infrastructure.adapters.openai_adapter import OpenAIAdapter
 from utils.load_env import settings
@@ -85,19 +82,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         portfolio_file=PORTFOLIO_FILE,
     )
     
-    # Initialize individual market data adapters
-    market_data_adapters = []
-    if settings.coingecko_enabled:
-        market_data_adapters.append(CoinGeckoAdapter(config=settings))
-    if settings.binance_enabled:
-        market_data_adapters.append(BinanceAdapter(config=settings))
-    
-    if not market_data_adapters:
-        logger.critical("No market data adapters enabled. Exiting.")
-        sys.exit(1)
-
-    # Use MultiMarketDataAdapter to combine them
-    market_data_adapter = MultiMarketDataAdapter(adapters=market_data_adapters, config=settings)
+    market_data_adapter = get_market_data_adapter(settings)
     
     decision_engine_adapter = OpenAIAdapter()
 

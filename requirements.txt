@@ -25,3 +25,4 @@ vectorbt
 optuna
 ray
 colorlog
+python-binance

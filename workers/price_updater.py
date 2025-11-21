@@ -1,8 +1,9 @@
 from typing import List
 
 from domain.models.coin import Coin
-from infrastructure.adapters.coingecko_adapter import CoinGeckoAdapter
+from domain.ports.market_data_port import MarketDataPort
 from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
+from infrastructure.adapters.market_data_factory import get_market_data_adapter
 from utils.logger import get_logger
 from utils.load_env import settings # Import settings
 
@@ -23,7 +24,7 @@ def _fetch_and_add_historic_prices(
 
 def _add_new_coin_with_history(
     storage: JSONStorageAdapter,
-    market_data: CoinGeckoAdapter,
+    market_data: MarketDataPort,
     symbol: str,
     coin_id: str,
 ):
@@ -40,7 +41,7 @@ def update_coin_prices(coins_file: str) -> List[Coin]:
     logger.info("Starting coin price update process...")
     # This worker also needs its own adapter instances.
     storage = JSONStorageAdapter(coins_file=coins_file, orders_file="", portfolio_file="")
-    market_data = CoinGeckoAdapter(config=settings) # Pass settings to CoinGeckoAdapter
+    market_data = get_market_data_adapter(settings)
 
     local_coins = storage.get_all_coins()
     local_coin_ids = {c.coin_id for c in local_coins}
@@ -49,7 +50,7 @@ def update_coin_prices(coins_file: str) -> List[Coin]:
         logger.warning("There are no coins in the data store, cannot update prices.")
         return []
 
-    logger.info("Fetching latest market data from CoinGecko...")
+    logger.info(f"Fetching latest market data from {settings.market_data_provider}...")
     latest_coins = market_data.get_coins()
     new_coins_count = 0
 

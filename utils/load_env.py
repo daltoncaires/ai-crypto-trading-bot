@@ -59,8 +59,7 @@ class Settings:
     shadow_evaluator_class: Optional[str]
     shadow_strategy_module: Optional[str]
     shadow_strategy_class: Optional[str]
-    coingecko_enabled: bool
-    binance_enabled: bool
+    market_data_provider: str
     binance_api_key: str
     binance_api_secret: str
 
@@ -144,8 +143,7 @@ def load_settings() -> Settings:
         shadow_evaluator_class=os.getenv("SHADOW_EVALUATOR_CLASS"),
         shadow_strategy_module=os.getenv("SHADOW_STRATEGY_MODULE"),
         shadow_strategy_class=os.getenv("SHADOW_STRATEGY_CLASS"),
-        coingecko_enabled=os.getenv("COINGECKO_ENABLED", "True").lower() == "true",
-        binance_enabled=os.getenv("BINANCE_ENABLED", "False").lower() == "true",
+        market_data_provider=os.getenv("MARKET_DATA_PROVIDER", "binance"),
         binance_api_key=os.getenv("BN_API_KEY", ""),
         binance_api_secret=os.getenv("BN_API_SECRET", ""),
     )
