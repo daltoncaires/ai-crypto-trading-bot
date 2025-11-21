@@ -26,3 +26,7 @@ optuna
 ray
 colorlog
 python-binance
+psycopg2-binary
+celery
+redis
+python-json-logger

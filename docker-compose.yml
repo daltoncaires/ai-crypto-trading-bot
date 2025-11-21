@@ -1,0 +1,65 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    depends_on:
+      - db
+      - redis
+    environment:
+      - ENVIRONMENT=development
+      - STORAGE_PROVIDER=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=crypto_bot
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - .:/app
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=crypto_bot
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+  worker:
+    build: .
+    command: celery -A celery worker -l info
+    depends_on:
+      - redis
+    environment:
+      - ENVIRONMENT=development
+      - STORAGE_PROVIDER=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=crypto_bot
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - .:/app
+  beat:
+    build: .
+    command: celery -A celery beat -l info
+    depends_on:
+      - redis
+    environment:
+      - ENVIRONMENT=development
+      - STORAGE_PROVIDER=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=crypto_bot
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - .:/app

@@ -3,12 +3,13 @@ Multi-exchange market data adapter.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from domain.ports.market_data_port import MarketDataPort
+import pandas as pd
 from domain.models.coin import Coin
-from utils.logger import get_logger
+from domain.ports.market_data_port import MarketDataPort
 from utils.load_env import Settings
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -53,6 +54,26 @@ class MultiMarketDataAdapter(MarketDataPort):
                 logger.warning(f"Failed to get OHLC data from {adapter.__class__.__name__}: {e}")
         logger.warning(f"Could not fetch OHLC data for {coin_id} from any adapter.")
         return []
+
+    def get_historical_data(
+        self, symbol: str, interval: str, limit: int
+    ) -> pd.DataFrame:
+        for adapter in self.adapters:
+            try:
+                data = adapter.get_historical_data(symbol, interval, limit)
+                if not data.empty:
+                    logger.debug(
+                        f"Historical data for {symbol} fetched from {adapter.__class__.__name__}"
+                    )
+                    return data
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get historical data from {adapter.__class__.__name__}: {e}"
+                )
+        logger.warning(
+            f"Could not fetch historical data for {symbol} from any adapter."
+        )
+        return pd.DataFrame()
 
     def get_coins(self) -> List[Coin]:
         all_coins = []

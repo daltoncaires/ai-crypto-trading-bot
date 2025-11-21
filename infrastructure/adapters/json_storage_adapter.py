@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
-from typing import Any, Callable, List, Literal, Optional
+from typing import Any, Callable, cast, List, Literal, Optional
 
 from domain.models.coin import Coin
 from domain.models.paper_order import PaperOrder
@@ -42,7 +42,7 @@ class JSONStorageAdapter(DataStoragePort):
                 data = f.read().strip()
                 if not data:
                     return []
-                return json.loads(data)
+                return cast(List[Any], json.loads(data))
         except (IOError, json.JSONDecodeError) as e:
             logger.error(f"Error reading from {file_path}: {e}")
             return []
@@ -135,7 +135,7 @@ class JSONStorageAdapter(DataStoragePort):
         buy_price: float,
         quantity: float,
         symbol: str,
-        direction: str,
+        direction: Literal["BUY", "SELL"],
     ) -> PaperOrder:
         orders = self.get_all_orders()
         new_order = PaperOrder(

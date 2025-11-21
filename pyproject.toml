@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py311"
+
+[tool.ruff.lint]
+# Habilita um conjunto de regras padrão e algumas adicionais.
+# pycodestyle (E), Pyflakes (F), isort (I), flake8-bugbear (B)
+select = ["E", "F", "I", "B", "W"]
+ignore = ["E501"] # Ignora erro de linha muito longa, o formatador cuida disso.
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true # Começamos ignorando para facilitar a adoção
+exclude = ["env", ".venv"]

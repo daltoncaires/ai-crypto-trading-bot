@@ -43,8 +43,11 @@ At a high level, an AI trading bot's workflow breaks down into four main stages:
 Here’s what you’re going to need to complete this project:
 
 *   A CoinGecko API Key
+*   A Binance API Key (optional, if you want to use Binance as the data provider)
 *   Python 3.11+
 *   An OpenAI API Key
+
+The bot supports both **CoinGecko** and **Binance** as data providers. You can choose which one to use in the configuration file.
 
 ### Obtaining a CoinGecko API Key
 
@@ -93,7 +96,6 @@ anyio==4.10.0
 certifi==2025.8.3
 charset-normalizer==3.4.3
 colorama==0.4.6
-dataclass-wizard==0.35.1
 distro==1.9.0
 h11==0.16.0
 httpcore==1.0.9
@@ -111,6 +113,12 @@ typing-inspection==0.4.1
 typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
+pandas
+vectorbt
+optuna
+ray
+colorlog
+python-binance
 ```
 
 Now install them by running:
@@ -124,7 +132,13 @@ Create a `.env` file in the project root to store API keys and trading configura
 
 Copy this template:
 ```
+# Market Data Provider: Choose 'coingecko' or 'binance'
+MARKET_DATA_PROVIDER = "binance"
+
+# API Keys
 CG_API_KEY = "CG-API-KEY"
+BN_API_KEY = "BN-API-KEY"
+BN_API_SECRET = "BN_API_SECRET"
 OPENAI_API_KEY="sk-OPENAI-API-KEY"
 
 # Application Settings
@@ -142,12 +156,16 @@ MIN_BUYS_24H = "1000"
 PROMPT_TEMPLATE = ./prompt_template.txt
 ```
 
-Replace the placeholder API keys with your actual CoinGecko API key and OpenAI API key.
+Replace the placeholder API keys with your actual API keys.
 
 Here's what each setting does:
 
-*   **TAKE_PROFIT:** The percentage gain threshold to sell and lock in profits (e.g., 20% above entry price).
-*   **STOP_LOSS:** The percentage loss threshold to sell and cut losses (e.g., 10% below entry price).
+*   **MARKET_DATA_PROVIDER**: Choose which data provider to use. Can be `coingecko` or `binance`.
+*   **CG_API_KEY**: Your CoinGecko API key.
+*   **BN_API_KEY**: Your Binance API key.
+*   **BN_API_SECRET**: Your Binance API secret.
+*   **TAKE_PROFIT**: The percentage gain threshold to sell and lock in profits (e.g., 20% above entry price).
+*   **STOP_LOSS**: The percentage loss threshold to sell and cut losses (e.g., 10% below entry price).
 *   **ORDER_AMOUNT**: The fixed USD amount to allocate per trade.
 *   **MIN_VOLUME_24H**: Minimum trading volume (in USD) for a pool to qualify as safe.
 *   **MIN_RESERVES_USD**: Minimum liquidity reserves (in USD) to filter out low-liquidity pools.
@@ -181,32 +199,17 @@ min_buys_24h = float(os.getenv("MIN_BUYS_24H"))
 
 ## How to Feed Real-time & Historical Crypto Market Data to AI?
 
-You can feed real-time and historical crypto market data to an AI trading from a comprehensive data source like the CoinGecko API. This data is crucial for the AI to perform its analysis. The CoinGecko API provides a wide range of data points, including real-time prices, historical OHLC (Open, High, Low, Close) candlestick data, market cap, and liquidity data, which are essential for building a robust trading strategy.
+You can feed real-time and historical crypto market data to an AI trading from a comprehensive data source like the CoinGecko or Binance API. This data is crucial for the AI to perform its analysis. The bot uses a Port and Adapter pattern to abstract the data source, allowing you to easily switch between providers.
+
+The `domain/ports/market_data_port.py` file defines the interface for the market data providers, and the `infrastructure/adapters/` directory contains the concrete implementations for each provider (e.g., `coingecko_adapter.py`, `binance_adapter.py`).
+
+A factory function in `infrastructure/adapters/market_data_factory.py` is responsible for creating the correct adapter based on the `MARKET_DATA_PROVIDER` environment variable.
 
 ### Fetching Data: How to Get Historical Data for Major Coins?
 
-Under `services/coingecko_service.py`, we’re going to define a `CoinGecko` class, with a method for each endpoint.
+Under `infrastructure/adapters/`, you will find the adapters for each data provider. For example, the `coingecko_adapter.py` contains the `CoinGeckoAdapter` class, which implements the `MarketDataPort` and fetches data from the CoinGecko API.
 
-Start by importing the required dependencies and define the constructor to include the CoinGecko authentication headers. Don’t worry about any types that you have not yet defined.
-```python
-import requests
-from data_access.models.coin import Coin
-from utils.load_env import *
-from typing import List
-from datetime import datetime
-
-class CoinGecko:
-    def __init__(self):
-        self.root = "https://pro-api.coingecko.com/api/v3"
-        self.headers = {
-            "accept": "application/json",
-            "x-cg-pro-api-key": f"{cg_api_key}",
-        }
-```
-
-**Note:** If you’re using the Demo API, you’ll need to change the `self.root` URL to `https://api.coingecko.com/api/v3` and update the `self.headers` key to `x-cg-demo-api-key`.
-
-Next, add a new method to the class to fetch OHLC data by coin ID:
+Here is an example of how the `get_historic_ohlc_by_coin_id` method is implemented in the `CoinGeckoAdapter`:
 ```python
 def get_historic_ohlc_by_coin_id(
     self,
@@ -214,19 +217,37 @@ def get_historic_ohlc_by_coin_id(
     vs_currency: str = "usd",
     days: int = 1,
     interval: str = "hourly",
-):
+) -> List[list]:
     request_url = f"{self.root}/coins/{coin_id}/ohlc?vs_currency={vs_currency}&days={days}&interval={interval}"
-    response = requests.get(request_url, headers=self.headers)
-    candles = response.json()
-    return candles
+    start_time = time.monotonic()
+    try:
+        response = requests.get(request_url, headers=self.headers, timeout=10)
+        response.raise_for_status()
+        duration = time.monotonic() - start_time
+        logger.info(
+            "CoinGecko API call successful",
+            extra={"event": "api_call", "adapter": "coingecko", "endpoint": "/coins/{id}/ohlc", "duration_ms": duration * 1000},
+        )
+        time.sleep(10)  # Basic rate limiting
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        duration = time.monotonic() - start_time
+        logger.error(
+            f"CoinGecko API request failed for OHLC of {coin_id}: {e}",
+            extra={"event": "api_error", "adapter": "coingecko", "endpoint": "/coins/{id}/ohlc", "duration_ms": duration * 1000},
+        )
+        return []
 ```
 
-💡 **Pro tip**: The coin ID is a unique identifier for each cryptocurrency and may not always match the coin's ticker symbol. You can find the complete list of coin IDs via the [/coins/list](https://docs.coingecko.com/reference/coins-list) endpoint or by referencing [this spreadsheet](https://docs.google.com/spreadsheets/d/1wTTuxXt8n9q7C4NDXqQpI3wpKu1_5bGVmP9Xz0XGSyU/edit?usp=sharing).
+The `BinanceAdapter` has a similar implementation, but it uses the `python-binance` library to fetch data from the Binance API.
 
-To run this, instantiate the class and call the method with the desired parameters:
+To use the market data adapter, you can get it from the factory like this:
 ```python
-cg = CoinGecko()
-print(cg.get_historic_ohlc_by_coin_id("bitcoin", "usd", days=180, interval="daily"))
+from infrastructure.adapters.market_data_factory import get_market_data_adapter
+from utils.load_env import settings
+
+market_data_adapter = get_market_data_adapter(settings)
+print(market_data_adapter.get_historic_ohlc_by_coin_id("bitcoin", "usd", days=180, interval="daily"))
 ```
 
 This will return raw candlestick data, along with a timestamp for search entry:
@@ -248,42 +269,7 @@ This will return raw candlestick data, along with a timestamp for search entry:
 ]
 ```
 
-Continue by creating methods for the remaining CoinGecko endpoints, and nest them under the `CoinGecko` class.
-
-The following methods will enable our AI crypto trading bot to fetch real-time prices, identify promising large caps, and find safe liquidity pools:
-```python
-def get_price_by_coin_id(self, coin_id: str):
-    request_url = self.root + f"/simple/price?ids={coin_id}&vs_currencies=usd"
-    response = requests.get(request_url, self.headers)
-    data = response.json()
-    return data.get(coin_id, {}).get("usd")
-
-def get_coins(self) -> List[Coin]:
-    request_url = (
-        self.root
-        + "/coins/markets?order=market_cap_desc&per_page=250&vs_currency=usd&price_change_percentage=1h"
-    )
-    response = requests.get(request_url, headers=self.headers)
-    data = response.json()
-    coins = []
-    now = datetime.now().timestamp()
-    for coin_data in data:
-        coin = Coin(
-            coin_id=coin_data["id"],
-            symbol=coin_data["symbol"],
-            realized_pnl=0.0,
-            price_change=coin_data.get(
-                "price_change_percentage_1h_in_currency", 0.0
-            ),
-        )
-        coin.prices = [[now, coin_data["current_price"]]]
-        coins.append(coin)
-    return coins
-
-def search_pools(self, query: str = None, chain: str = None):
-    request_url = f"{self.root}/onchain/search/pools?query={query}"
-    response = requests.get(request_url, headers=self.headers)
-```
+The other methods in the `MarketDataPort` are `get_price_by_coin_id`, `get_coins`, and `search_pools`. You can find their implementations in the respective adapters.
 
 ### Defining Data
 

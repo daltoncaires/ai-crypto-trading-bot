@@ -2,7 +2,7 @@
 Defines the interface (port) for AI decision-making services.
 """
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 class DecisionEnginePort(ABC):

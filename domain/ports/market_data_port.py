@@ -2,8 +2,9 @@
 Defines the interface (port) for market data services.
 """
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
+import pandas as pd
 from domain.models.coin import Coin
 
 
@@ -24,6 +25,23 @@ class MarketDataPort(ABC):
         interval: str = "hourly",
     ) -> List[list]:
         """Fetches historical OHLC data for a coin."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_historical_data(
+        self, symbol: str, interval: str, limit: int
+    ) -> pd.DataFrame:
+        """
+        Fetches historical OHLCV data for a given symbol.
+
+        Args:
+            symbol: The trading symbol (e.g., 'BTCUSDT').
+            interval: The interval for the klines (e.g., '1d', '4h').
+            limit: The number of data points to retrieve.
+
+        Returns:
+            A pandas DataFrame with columns like ['timestamp', 'open', 'high', 'low', 'close', 'volume'].
+        """
         raise NotImplementedError
 
     @abstractmethod

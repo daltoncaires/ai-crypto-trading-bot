@@ -1,0 +1,7 @@
+ruff
+mypy
+bandit
+pytest
+pytest-cov
+bandit
+tenacity

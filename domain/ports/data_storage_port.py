@@ -2,12 +2,12 @@
 Defines the interface (port) for data storage services.
 """
 from abc import ABC, abstractmethod
-from typing import List, Optional, Literal
 from datetime import datetime
+from typing import List, Literal, Optional
 
 from domain.models.coin import Coin
 from domain.models.paper_order import PaperOrder
-from domain.models.portfolio_item import PortfolioItem, PnLEntry
+from domain.models.portfolio_item import PnLEntry, PortfolioItem
 
 
 class DataStoragePort(ABC):
@@ -65,8 +65,8 @@ class DataStoragePort(ABC):
         buy_price: float,
         quantity: float,
         symbol: str,
-        direction: str,
-    ) -> PaperOrder:
+        direction: Literal["BUY", "SELL"],
+    ) -> Optional[PaperOrder]:
         raise NotImplementedError
 
     # --- Portfolio Methods ---
@@ -81,7 +81,7 @@ class DataStoragePort(ABC):
     @abstractmethod
     def insert_portfolio_item(
         self, symbol: str, cost_basis: float, total_quantity: float
-    ) -> PortfolioItem:
+    ) -> Optional[PortfolioItem]:
         raise NotImplementedError
 
     @abstractmethod

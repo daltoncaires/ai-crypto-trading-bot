@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-from utils.load_env import Settings
 from domain.evaluator import Evaluator
 from domain.ports.data_storage_port import DataStoragePort
 from domain.ports.market_data_port import MarketDataPort
 from domain.strategy import Strategy
+from utils.load_env import Settings
 
 
 class EngineComponent(ABC):

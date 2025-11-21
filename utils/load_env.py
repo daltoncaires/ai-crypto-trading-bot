@@ -10,7 +10,9 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env file only in development
+if os.getenv("ENVIRONMENT") == "development":
+    load_dotenv()
 
 PARAMS_FILE = "best_params.json"
 
@@ -38,14 +40,56 @@ class PoolSafetySettings:
 
 
 @dataclass(frozen=True)
+class DBSettings:
+    """Database connection settings."""
+
+    host: str
+    port: int
+    user: str
+    password: str
+    dbname: str
+    max_pool_connections: int
+
+
+@dataclass(frozen=True)
+class ApiSettings:
+    """General settings for API interactions."""
+
+    request_timeout: int
+    rate_limit_sleep: int
+
+
+@dataclass(frozen=True)
+class CoinGeckoSettings:
+    """Settings specific to the CoinGecko adapter."""
+
+    api_root: str
+    coins_per_page: int
+
+
+@dataclass(frozen=True)
+class CelerySettings:
+    """Celery and Redis connection settings."""
+
+    broker_url: str
+    result_backend: str
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level settings container shared across the application."""
 
+    environment: str
     cg_api_key: str
+    coingecko: CoinGeckoSettings
+    api: ApiSettings
     openai_api_key: str
     prompt_template: str
     trade: TradeSettings
     pool: PoolSafetySettings
+    db: DBSettings
+    celery: CelerySettings
+    storage_provider: str
     engine_module: str
     engine_class: str
     evaluator_module: str
@@ -62,6 +106,19 @@ class Settings:
     market_data_provider: str
     binance_api_key: str
     binance_api_secret: str
+
+
+def _get_secret(key: str, default: Optional[str] = None) -> str:
+    """
+    Retrieves a secret from environment variables.
+    Raises an error if the secret is not set and no default is provided.
+    """
+    value = os.getenv(key, default)
+    if value is None:
+        raise ValueError(
+            f"Required secret '{key}' is not set and no default was provided."
+        )
+    return value
 
 
 def _read_env_float(var_name: str, default: Optional[float] = None) -> float:
@@ -90,7 +147,8 @@ def _load_prompt_template(path: Optional[str]) -> str:
         print(
             f"--- Prompt template file '{path}' not found, using default prompt. ---"
         )
-        return template_path.read_text()
+        return default_prompt
+    return template_path.read_text()
 
 
 def load_settings() -> Settings:
@@ -120,9 +178,36 @@ def load_settings() -> Settings:
         print(f"--- Overridden trade settings: {trade_settings} ---")
 
     # 3. Load other settings and assemble the final config
+    db_settings = DBSettings(
+        host=_get_secret("DB_HOST", "localhost"),
+        port=int(_get_secret("DB_PORT", "5432")),
+        user=_get_secret("DB_USER", "user"),
+        password=_get_secret("DB_PASSWORD", "password"),
+        dbname=_get_secret("DB_NAME", "crypto_bot"),
+        max_pool_connections=int(_get_secret("DB_MAX_POOL_CONNECTIONS", "10")),
+    )
+
+    api_settings = ApiSettings(
+        request_timeout=int(_get_secret("API_REQUEST_TIMEOUT", "10")),
+        rate_limit_sleep=int(_get_secret("API_RATE_LIMIT_SLEEP", "10")),
+    )
+
+    coingecko_settings = CoinGeckoSettings(
+        api_root=_get_secret("CG_API_ROOT", "https://api.coingecko.com/api/v3"),
+        coins_per_page=int(_get_secret("CG_COINS_PER_PAGE", "10")),
+    )
+
+    celery_settings = CelerySettings(
+        broker_url=_get_secret("CELERY_BROKER_URL", "redis://localhost:6379/0"),
+        result_backend=_get_secret("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
+    )
+
     settings = Settings(
-        cg_api_key=os.getenv("CG_API_KEY", ""),
-        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        environment=os.getenv("ENVIRONMENT", "development"),
+        cg_api_key=_get_secret("CG_API_KEY", ""),
+        coingecko=coingecko_settings,
+        api=api_settings,
+        openai_api_key=_get_secret("OPENAI_API_KEY", ""),
         prompt_template=_load_prompt_template(os.getenv("PROMPT_TEMPLATE")),
         trade=trade_settings,
         pool=PoolSafetySettings(
@@ -130,6 +215,9 @@ def load_settings() -> Settings:
             min_reserves_usd=_read_env_float("MIN_RESERVES_USD"),
             min_buys_24h=_read_env_float("MIN_BUYS_24H"),
         ),
+        db=db_settings,
+        celery=celery_settings,
+        storage_provider=os.getenv("STORAGE_PROVIDER", "json"),
         engine_module=os.getenv("ENGINE_MODULE", "domain.engine"),
         engine_class=os.getenv("ENGINE_CLASS", "Engine"),
         evaluator_module=os.getenv("EVALUATOR_MODULE", "domain.evaluator"),
@@ -144,8 +232,8 @@ def load_settings() -> Settings:
         shadow_strategy_module=os.getenv("SHADOW_STRATEGY_MODULE"),
         shadow_strategy_class=os.getenv("SHADOW_STRATEGY_CLASS"),
         market_data_provider=os.getenv("MARKET_DATA_PROVIDER", "binance"),
-        binance_api_key=os.getenv("BN_API_KEY", ""),
-        binance_api_secret=os.getenv("BN_API_SECRET", ""),
+        binance_api_key=_get_secret("BN_API_KEY", ""),
+        binance_api_secret=_get_secret("BN_API_SECRET", ""),
     )
     return settings
 
@@ -153,4 +241,4 @@ def load_settings() -> Settings:
 # Create a single, globally-used settings object
 settings = load_settings()
 
-__all__ = ["settings", "Settings", "TradeSettings", "PoolSafetySettings"]
+__all__ = ["settings", "Settings", "TradeSettings", "PoolSafetySettings", "DBSettings", "CelerySettings"]

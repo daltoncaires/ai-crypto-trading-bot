@@ -16,12 +16,15 @@ Core Concepts Implemented:
   new defaults for the live trading bot.
 """
 
+import functools
 import json
+import os
 import sys
+
 import numpy as np
+import optuna
 import pandas as pd
 import vectorbt as vbt
-import optuna
 
 from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
 from utils.logger import get_logger
@@ -29,6 +32,9 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 # --- Configuration ---
+N_FOLDS = 5  # Number of folds for Walk-Forward Optimization
+TRAIN_TEST_SPLIT = 0.8  # 80% training, 20% testing in each fold
+N_TRIALS = 100  # Number of optimization trials per fold
 PARAMS_FILE = "best_params.json"
 # The optimizer uses the same data files as the main bot
 COINS_FILE = os.path.join(os.path.dirname(__file__), "data/coins.json")
@@ -125,7 +131,7 @@ def run_wfo(price_series: pd.Series):
         )
 
         # --- Optimization Step with Optuna ---
-        def objective(trial: optuna.Trial) -> float:
+        def objective(trial: optuna.Trial, prices: pd.Series) -> float:
             """
             Objective function for Optuna to maximize.
             """
@@ -140,14 +146,19 @@ def run_wfo(price_series: pd.Series):
             if params["fast_window"] >= params["slow_window"]:
                 return -1.0  # Return a poor score to prune this trial
 
-            portfolio = run_backtest(train_prices, params)
+            portfolio = run_backtest(prices, params)
             return portfolio.total_return()
 
         logger.info(f"Running Optuna optimization for {N_TRIALS} trials...")
         study = optuna.create_study(
             direction="maximize", pruner=optuna.pruners.MedianPruner()
         )
-        study.optimize(objective, n_trials=N_TRIALS, n_jobs=-1)  # Use all available CPU cores
+        objective_with_data = functools.partial(objective, prices=train_prices)
+        study.optimize(
+            objective_with_data,
+            n_trials=N_TRIALS,
+            n_jobs=-1,
+        )  # Use all available CPU cores
 
         best_params = study.best_params
         latest_best_params = best_params
@@ -194,6 +205,6 @@ if __name__ == "__main__":
         )
         logger.error("You can generate it by running the main bot once.")
         sys.exit(1)
-    except Exception as e:
+    except Exception:
         logger.critical("An unexpected error occurred.", exc_info=True)
         sys.exit(1)

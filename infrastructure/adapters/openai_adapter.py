@@ -6,9 +6,15 @@ import time
 from typing import Any, Dict
 
 from openai import APIError, OpenAI
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from domain.ports.decision_engine_port import DecisionEnginePort
-from utils.load_env import settings
+from utils.load_env import Settings
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -17,9 +23,25 @@ logger = get_logger(__name__)
 class OpenAIAdapter(DecisionEnginePort):
     """An adapter for the OpenAI API that implements the DecisionEnginePort."""
 
-    def __init__(self):
-        self.client = OpenAI(api_key=settings.openai_api_key)
+    def __init__(self, config: Settings):
+        self.config = config
+        self.client = OpenAI(api_key=self.config.openai_api_key)
         logger.info("OpenAI adapter initialized.")
+
+    def _get_retrying_api_call(self, api_call_func):
+        @retry(
+            stop=stop_after_attempt(self.config.api.max_retries),
+            wait=wait_exponential(
+                multiplier=self.config.api.retry_multiplier,
+                min=self.config.api.retry_min_delay,
+                max=self.config.api.rate_limit_sleep, # Using rate_limit_sleep as max delay for OpenAI too
+            ),
+            retry=retry_if_exception_type(APIError),
+            reraise=True,
+        )
+        def _retrying_api_call(*args, **kwargs):
+            return api_call_func(*args, **kwargs)
+        return _retrying_api_call
 
     def get_chat_completion(
         self, context: Dict[str, Any], instructions: str, model: str = "gpt-4-mini"
@@ -30,7 +52,7 @@ class OpenAIAdapter(DecisionEnginePort):
         start_time = time.monotonic()
         try:
             logger.debug(f"Sending context to OpenAI: {context}")
-            response = self.client.chat.completions.create(
+            response = self._get_retrying_api_call(self.client.chat.completions.create)(
                 model=model,
                 messages=[
                     {"role": "system", "content": instructions},

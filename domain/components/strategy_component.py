@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from domain.models.coin import Coin
-from utils.load_env import Settings
 from domain.ports.data_storage_port import DataStoragePort
 from domain.ports.decision_engine_port import DecisionEnginePort
+from utils.load_env import Settings
 
 
 class StrategyComponent(ABC):

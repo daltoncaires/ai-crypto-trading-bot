@@ -11,12 +11,12 @@ This is a minimal, modular AI-powered crypto trading bot for learning, experimen
 
 ### Features
 - Loads and manages coin, order, and portfolio data using simple JSON-based DALs (Data Access Layers).
-- Fetches live and historical price data from CoinGecko.
+- Fetches live and historical price data from multiple exchanges (CoinGecko and Binance).
 - Uses OpenAI to generate buy/sell recommendations based on market context and configurable prompts.
 - Simulates trading logic, including buy/sell handling, portfolio updates, and PnL tracking.
 - Includes a backtesting module to evaluate AI-driven strategies on historical data.
 - All configuration is handled via environment variables for easy tuning.
-- **API-Driven Configuration**: Adapts to the available data from the CoinGecko API, ensuring resilience to changes and gracefully handling missing data points.
+- **API-Driven Configuration**: Adapts to the available data from the chosen API, ensuring resilience to changes and gracefully handling missing data points.
 - **Component Versioning**: Supports dynamic loading of different versions of core components (Evaluator, Strategy) via environment variables, enabling A/B testing and phased rollouts.
 - **Shadow Mode**: Allows a new version of a component to run in parallel with the production version, processing the same inputs and logging its outputs without affecting live trading decisions. This is crucial for safely testing and validating new component versions in a production-like environment.
 
@@ -47,7 +47,10 @@ When shadow mode is enabled, the bot will log the decisions and outcomes of both
 #### Prerequisites
 - Python 3.11+
 - A CoinGecko Demo API Key
+- A Binance API Key (optional, if you want to use Binance as the data provider)
 - An OpenAI API Key
+
+The bot supports both **CoinGecko** and **Binance** as data providers. You can choose which one to use in the configuration file.
 
 #### Installation
 1.  Clone the repository:
@@ -67,9 +70,15 @@ When shadow mode is enabled, the bot will log the decisions and outcomes of both
 
 #### Configuration
 1.  Create a `.env` file in the project root by copying the `.env.example` file.
-2.  Add your CoinGecko and OpenAI API keys to the `.env` file:
+2.  Add your API keys and configure the market data provider in the `.env` file:
     ```
-    CG_API_KEY="YOUR_COINGECKO_DEMO_API_KEY"
+    # Market Data Provider: Choose 'coingecko' or 'binance'
+    MARKET_DATA_PROVIDER = "binance"
+
+    # API Keys
+    CG_API_KEY = "YOUR_COINGECKO_DEMO_API_KEY"
+    BN_API_KEY = "YOUR_BINANCE_API_KEY"
+    BN_API_SECRET = "YOUR_BINANCE_API_SECRET"
     OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
     ```
 3.  Configure the trading parameters in the `.env` file as needed.
@@ -123,12 +132,12 @@ Este é um bot de negociação de criptomoedas minimalista e modular, alimentado
 
 ### Funcionalidades
 - Carrega e gerencia dados de moedas, ordens e portfólio usando DALs (Camadas de Acesso a Dados) simples baseadas em JSON.
-- Busca dados de preços ao vivo e históricos do CoinGecko.
+- Busca dados de preços ao vivo e históricos de múltiplas exchanges (CoinGecko e Binance).
 - Usa a OpenAI para gerar recomendações de compra/venda com base no contexto do mercado e em prompts configuráveis.
 - Simula a lógica de negociação, incluindo o manuseio de compra/venda, atualizações de portfólio e acompanhamento de PnL (Lucros e Perdas).
 - Inclui um módulo de backtesting para avaliar estratégias orientadas por IA em dados históricos.
 - Toda a configuração é tratada por meio de variáveis de ambiente para fácil ajuste.
-- **Configuração Orientada à API**: Adapta-se aos dados disponíveis da API do CoinGecko, garantindo resiliência a mudanças e lidando de forma elegante com pontos de dados ausentes.
+- **Configuração Orientada à API**: Adapta-se aos dados disponíveis da API escolhida, garantindo resiliência a mudanças e lidando de forma elegante com pontos de dados ausentes.
 - **Versionamento de Componentes**: Suporta o carregamento dinâmico de diferentes versões dos componentes principais (Evaluator, Strategy) através de variáveis de ambiente, permitindo testes A/B e lançamentos faseados.
 - **Modo Sombra (Shadow Mode)**: Permite que uma nova versão de um componente seja executada em paralelo com a versão de produção, processando as mesmas entradas e registrando suas saídas sem afetar as decisões de negociação ao vivo. Isso é crucial para testar e validar com segurança novas versões de componentes em um ambiente semelhante ao de produção.
 
@@ -159,7 +168,10 @@ Quando o modo sombra está habilitado, o bot registrará as decisões e os resul
 #### Pré-requisitos
 - Python 3.11+
 - Uma chave de API de demonstração do CoinGecko
+- Uma chave de API da Binance (opcional, se você quiser usar a Binance como provedor de dados)
 - Uma chave de API da OpenAI
+
+O bot suporta **CoinGecko** e **Binance** como provedores de dados. Você pode escolher qual usar no arquivo de configuração.
 
 #### Instalação
 1.  Clone o repositório:
@@ -179,9 +191,15 @@ Quando o modo sombra está habilitado, o bot registrará as decisões e os resul
 
 #### Configuração
 1.  Crie um arquivo `.env` na raiz do projeto copiando o arquivo `.env.example`.
-2.  Adicione suas chaves de API do CoinGecko and OpenAI ao arquivo `.env`:
+2.  Adicione suas chaves de API e configure o provedor de dados de mercado no arquivo `.env`:
     ```
-    CG_API_KEY="SUA_CHAVE_DE_API_DEMO_DO_COINGECKO"
+    # Provedor de Dados de Mercado: Escolha 'coingecko' ou 'binance'
+    MARKET_DATA_PROVIDER = "binance"
+
+    # Chaves de API
+    CG_API_KEY = "SUA_CHAVE_DE_API_DEMO_DO_COINGECKO"
+    BN_API_KEY = "SUA_CHAVE_DE_API_DA_BINANCE"
+    BN_API_SECRET = "SEU_SEGREDO_DE_API_DA_BINANCE"
     OPENAI_API_KEY="SUA_CHAVE_DE_API_DA_OPENAI"
     ```
 3.  Configure os parâmetros de negociação no arquivo `.env` conforme necessário.

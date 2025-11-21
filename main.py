@@ -11,39 +11,19 @@ bot's execution cycle.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from typing import Iterable
 
 # from dataclasses import replace # No longer needed if not using temp_settings
-from domain.plugin_loader import load_plugin # New import
+from domain.plugin_loader import load_plugin  # New import
 from infrastructure.adapters.market_data_factory import get_market_data_adapter
-from infrastructure.adapters.json_storage_adapter import JSONStorageAdapter
 from infrastructure.adapters.openai_adapter import OpenAIAdapter
+from infrastructure.adapters.storage_factory import get_storage_adapter
 from utils.load_env import settings
 from utils.logger import get_logger
-from workers.initializer import initialize_coin_data
-from workers.price_updater import update_coin_prices
+from workers.tasks import initialize_coin_data_task
 
 logger = get_logger(__name__)
-
-# --- File Paths for JSON Storage Adapter ---
-BASE_DIR = os.path.dirname(__file__)
-DATA_DIR = os.path.join(BASE_DIR, "data")
-COINS_FILE = os.path.join(DATA_DIR, "coins.json")
-ORDERS_FILE = os.path.join(DATA_DIR, "orders.json")
-PORTFOLIO_FILE = os.path.join(DATA_DIR, "portfolio.json")
-
-
-def bootstrap_data(refresh_prices: bool = True) -> None:
-    """
-    Ensures data stores are initialized and optionally refreshes market data.
-    """
-    logger.info("Bootstrapping data...")
-    os.makedirs(DATA_DIR, exist_ok=True)
-    initialize_coin_data(COINS_FILE)
-    if refresh_prices:
-        update_coin_prices(COINS_FILE)
 
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
@@ -61,11 +41,11 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         help="Run a single trading cycle and exit.",
     )
     parser.add_argument(
-        "--skip-refresh",
+        "--init-db",
         action="store_true",
-        help="Skip refreshing coin prices during bootstrap.",
+        help="Initializes the database with coin data.",
     )
-    return parser.parse_args(argv)
+    return parser.parse_args(list(argv))
 
 
 def main(argv: Iterable[str] | None = None) -> None:
@@ -74,17 +54,18 @@ def main(argv: Iterable[str] | None = None) -> None:
     """
     args = parse_args(argv if argv is not None else sys.argv[1:])
 
+    if args.init_db:
+        initialize_coin_data_task.delay()
+        print("Database initialization task has been queued.")
+        return
+
     # 1. Initialize Adapters (Infrastructure)
     logger.info("Initializing infrastructure adapters...")
-    storage_adapter = JSONStorageAdapter(
-        coins_file=COINS_FILE,
-        orders_file=ORDERS_FILE,
-        portfolio_file=PORTFOLIO_FILE,
-    )
-    
+    storage_adapter = get_storage_adapter(settings)
+
     market_data_adapter = get_market_data_adapter(settings)
-    
-    decision_engine_adapter = OpenAIAdapter()
+
+    decision_engine_adapter = OpenAIAdapter(settings)
 
     # 2. Initialize Domain Components
     logger.info("Initializing core domain components...")
@@ -102,11 +83,9 @@ def main(argv: Iterable[str] | None = None) -> None:
     strategy = StrategyClass(
         storage=storage_adapter,
         decision_engine=decision_engine_adapter,
+        market_data=market_data_adapter,
         config=settings,
     )
-
-    # 3. Bootstrap application data
-    bootstrap_data(refresh_prices=not args.skip_refresh)
 
     # 4. Initialize and run the Core Trading Engine
     logger.info("Initializing core trading engine...")
@@ -126,7 +105,7 @@ def main(argv: Iterable[str] | None = None) -> None:
 if __name__ == "__main__":
     try:
         main()
-    except Exception as e:
+    except Exception:
         logger.critical("A critical, unhandled error occurred.", exc_info=True)
         sys.exit(1)
 

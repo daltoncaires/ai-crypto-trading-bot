@@ -5,12 +5,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from domain.components.strategy_component import StrategyComponent
 from domain.models.coin import Coin
 from domain.trading_service import TradingService
 from utils.load_env import Settings
 from utils.logger import get_logger
-
-from domain.components.strategy_component import StrategyComponent
 
 if TYPE_CHECKING:
     from domain.ports.data_storage_port import DataStoragePort

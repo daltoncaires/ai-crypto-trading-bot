@@ -5,11 +5,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
+from domain.components.evaluator_component import EvaluatorComponent
 from domain.models.coin import Coin
 from utils.load_env import Settings
 from utils.logger import get_logger
-
-from domain.components.evaluator_component import EvaluatorComponent
 
 if TYPE_CHECKING:
     from domain.ports.market_data_port import MarketDataPort

@@ -1,5 +1,6 @@
 from importlib import import_module
-from typing import Type, Any, Optional
+from typing import Any, Optional, Type
+
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,19 +23,21 @@ def load_plugin(module_path: str, class_name: str, version: Optional[str] = None
     """
     try:
         module = import_module(module_path)
-        
+
         if version:
             versioned_class_name = f"{class_name}V{version.upper()}"
             try:
                 component_class = getattr(module, versioned_class_name)
                 logger.info(f"Loaded versioned plugin: {versioned_class_name} from {module_path}")
-                return component_class
+                return component_class  # type: ignore[no-any-return]
             except AttributeError:
                 logger.warning(f"Versioned class {versioned_class_name} not found in {module_path}. Falling back to {class_name}.")
-        
+
         component_class = getattr(module, class_name)
         logger.info(f"Loaded plugin: {class_name} from {module_path}")
-        return component_class
+        return component_class  # type: ignore[no-any-return]
     except (ImportError, AttributeError) as e:
-        raise ImportError(f"Could not load plugin '{class_name}' from '{module_path}' (version: {version}): {e}")
+        raise ImportError(
+            f"Could not load plugin '{class_name}' from '{module_path}' (version: {version}): {e}"
+        ) from e
 

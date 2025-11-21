@@ -7,6 +7,7 @@ from typing import List
 from data_access.DAL.coins_DAL import CoinsDAL
 from services.coingecko_service import CoinGecko
 from services.openai_service import OpenAIService
+
 from utils.load_env import settings
 from utils.logger import get_logger
 
@@ -78,6 +79,6 @@ if __name__ == "__main__":
         for b in buy_entries:
             logger.info(b)
 
-    except Exception as e:
+    except Exception:
         logger.critical("An unexpected error occurred during backtest.", exc_info=True)
         sys.exit(1)

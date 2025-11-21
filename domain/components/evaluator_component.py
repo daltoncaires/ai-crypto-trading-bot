@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from domain.models.coin import Coin
-from utils.load_env import Settings
 from domain.ports.market_data_port import MarketDataPort
+from utils.load_env import Settings
 
 
 class EvaluatorComponent(ABC):

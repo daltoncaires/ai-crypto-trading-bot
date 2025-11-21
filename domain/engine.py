@@ -3,18 +3,20 @@ The core trading engine that orchestrates the trading cycle.
 """
 from __future__ import annotations
 
-import time
 import threading
+import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
+from domain.components.engine_component import EngineComponent
+from domain.exceptions import DataStorageError, DecisionEngineError, MarketDataError
+from domain.plugin_loader import load_plugin
 from utils.load_env import Settings
 from utils.logger import get_logger
-from domain.components.engine_component import EngineComponent
-from domain.plugin_loader import load_plugin
 
 if TYPE_CHECKING:
     from domain.evaluator import Evaluator
+    from domain.models.coin import Coin
     from domain.ports.data_storage_port import DataStoragePort
     from domain.ports.market_data_port import MarketDataPort
     from domain.strategy import Strategy
@@ -71,13 +73,20 @@ class Engine(EngineComponent):
             except ImportError as e:
                 logger.error(f"Failed to load shadow components: {e}. Disabling shadow mode.")
                 self.config.shadow_mode_enabled = False
-        
+
         logger.info("Trading Engine initialized.")
 
     def run(self, run_once: bool = False) -> None:
         """Continuously run trading cycles."""
+        import uuid
+        from utils.logger import request_id_var
+
         logger.info("Starting trading engine...")
         while True:
+            # Set a unique ID for this trading cycle for traceability
+            request_id = str(uuid.uuid4())
+            request_id_var.set(request_id)
+
             logger.info("Starting new trading cycle.")
             self._run_cycle()
             if run_once:
@@ -90,41 +99,51 @@ class Engine(EngineComponent):
 
     def _run_cycle(self) -> None:
         """Executes a single trading cycle."""
-        coins = self.storage.get_all_coins()
+        try:
+            coins = self.storage.get_all_coins()
+        except DataStorageError as e:
+            logger.error(f"Error getting coins from storage: {e}", exc_info=True)
+            return
+
         if not coins:
             logger.warning("No coins found in local storage. Skipping cycle.")
             return
 
         for coin in coins:
-            if not self.evaluator.is_candidate(coin):
-                continue
+            try:
+                if not self.evaluator.is_candidate(coin):
+                    continue
 
-            current_price = self.market_data.get_price_by_coin_id(coin.coin_id)
-            if current_price is None:
-                logger.warning(f"Unable to fetch price for {coin.symbol}, skipping.")
-                continue
+                current_price = self.market_data.get_price_by_coin_id(coin.coin_id)
+                if current_price is None:
+                    logger.warning(f"Unable to fetch price for {coin.symbol}, skipping.")
+                    continue
 
-            safe_pools = self.evaluator.check_liquidity_pools(coin)
-            if not safe_pools:
-                logger.debug(f"No safe pools found for {coin.symbol}, skipping buy evaluation.")
-            else:
-                self.strategy.evaluate_and_execute_buy(coin, current_price, safe_pools)
+                safe_pools = self.evaluator.check_liquidity_pools(coin)
+                if not safe_pools:
+                    logger.debug(f"No safe pools found for {coin.symbol}, skipping buy evaluation.")
+                else:
+                    self.strategy.evaluate_and_execute_buy(coin, current_price, safe_pools)
 
-            self.strategy.evaluate_and_execute_sell(coin, current_price)
+                self.strategy.evaluate_and_execute_sell(coin, current_price)
 
-            # Record PnL for the portfolio
-            self.storage.add_pnl_entry_by_symbol(
-                coin.symbol, datetime.now(), current_price
-            )
-
-            if self.config.shadow_mode_enabled and self.shadow_evaluator and self.shadow_strategy:
-                logger.debug(f"Running shadow evaluation for {coin.symbol}...")
-                shadow_thread = threading.Thread(
-                    target=self._run_shadow_evaluation,
-                    args=(coin, current_price),
-                    daemon=True # Allow program to exit even if shadow thread is running
+                # Record PnL for the portfolio
+                self.storage.add_pnl_entry_by_symbol(
+                    coin.symbol, datetime.now(), current_price
                 )
-                shadow_thread.start()
+
+                if self.config.shadow_mode_enabled and self.shadow_evaluator and self.shadow_strategy:
+                    logger.debug(f"Running shadow evaluation for {coin.symbol}...")
+                    shadow_thread = threading.Thread(
+                        target=self._run_shadow_evaluation,
+                        args=(coin, current_price),
+                        daemon=True # Allow program to exit even if shadow thread is running
+                    )
+                    shadow_thread.start()
+            except (DataStorageError, MarketDataError, DecisionEngineError) as e:
+                logger.error(f"Error processing coin {coin.symbol}: {e}", exc_info=True)
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while processing coin {coin.symbol}: {e}", exc_info=True)
 
     def _run_shadow_evaluation(self, coin: Coin, current_price: float) -> None:
         """Executes the shadow evaluation logic for a single coin."""
