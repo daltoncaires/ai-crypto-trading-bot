@@ -33,6 +33,19 @@ jobs:
       run: |
         pip install pytest
         pytest
+      env:
+        ENVIRONMENT: production
+        CG_API_KEY: ${{ secrets.CG_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        BN_API_KEY: ${{ secrets.BN_API_KEY }}
+        BN_API_SECRET: ${{ secrets.BN_API_SECRET }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        CELERY_BROKER_URL: ${{ secrets.CELERY_BROKER_URL }}
+        CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v2
@@ -42,3 +55,15 @@ jobs:
         tags: ghcr.io/${{ github.repository }}:latest
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        ENVIRONMENT: production
+        CG_API_KEY: ${{ secrets.CG_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        BN_API_KEY: ${{ secrets.BN_API_KEY }}
+        BN_API_SECRET: ${{ secrets.BN_API_SECRET }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        CELERY_BROKER_URL: ${{ secrets.CELERY_BROKER_URL }}
+        CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
