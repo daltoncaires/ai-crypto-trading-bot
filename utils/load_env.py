@@ -80,7 +80,7 @@ class Settings:
     """Top-level settings container shared across the application."""
 
     environment: str
-    cg_api_key: str
+    cg_api_key: Optional[str]
     coingecko: CoinGeckoSettings
     api: ApiSettings
     openai_api_key: str
@@ -104,20 +104,18 @@ class Settings:
     shadow_strategy_module: Optional[str]
     shadow_strategy_class: Optional[str]
     market_data_provider: str
-    binance_api_key: str
-    binance_api_secret: str
+    binance_api_key: Optional[str]
+    binance_api_secret: Optional[str]
 
 
-def _get_secret(key: str, default: Optional[str] = None) -> str:
+def _get_secret(key: str, default: Optional[str] = None) -> Optional[str]:
     """
     Retrieves a secret from environment variables.
-    Raises an error if the secret is not set and no default is provided.
+    Returns None if the secret is not set and no default is provided.
     """
     value = os.getenv(key, default)
-    if value is None:
-        raise ValueError(
-            f"Required secret '{key}' is not set and no default was provided."
-        )
+    if value is None and default is None:
+        return None
     return value
 
 
@@ -202,9 +200,25 @@ def load_settings() -> Settings:
         result_backend=_get_secret("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
     )
 
+    binance_api_key = _get_secret("BN_API_KEY")
+    binance_api_secret = _get_secret("BN_API_SECRET")
+    cg_api_key = _get_secret("CG_API_KEY")
+
+    market_data_provider: str
+
+    if binance_api_key and binance_api_secret:
+        market_data_provider = "binance"
+    elif cg_api_key:
+        market_data_provider = "coingecko"
+    else:
+        raise ValueError(
+            "No market data API keys found. Please set BN_API_KEY and BN_API_SECRET "
+            "for Binance or CG_API_KEY for CoinGecko in your .env file."
+        )
+
     settings = Settings(
         environment=os.getenv("ENVIRONMENT", "development"),
-        cg_api_key=_get_secret("CG_API_KEY", ""),
+        cg_api_key=cg_api_key,
         coingecko=coingecko_settings,
         api=api_settings,
         openai_api_key=_get_secret("OPENAI_API_KEY", ""),
@@ -231,9 +245,9 @@ def load_settings() -> Settings:
         shadow_evaluator_class=os.getenv("SHADOW_EVALUATOR_CLASS"),
         shadow_strategy_module=os.getenv("SHADOW_STRATEGY_MODULE"),
         shadow_strategy_class=os.getenv("SHADOW_STRATEGY_CLASS"),
-        market_data_provider=os.getenv("MARKET_DATA_PROVIDER", "binance"),
-        binance_api_key=_get_secret("BN_API_KEY", ""),
-        binance_api_secret=_get_secret("BN_API_SECRET", ""),
+        market_data_provider=market_data_provider,
+        binance_api_key=binance_api_key,
+        binance_api_secret=binance_api_secret,
     )
     return settings
 
