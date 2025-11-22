@@ -10,8 +10,8 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-# Load .env file only in development
-if os.getenv("ENVIRONMENT") == "development":
+# Load .env file unless in a production environment
+if os.getenv("ENVIRONMENT") != "production":
     load_dotenv()
 
 PARAMS_FILE = "best_params.json"
@@ -156,10 +156,10 @@ def load_settings() -> Settings:
     """
     # 1. Load base settings from .env file
     trade_settings = TradeSettings(
-        take_profit=_read_env_float("TAKE_PROFIT"),
-        stop_loss=_read_env_float("STOP_LOSS"),
-        order_amount=_read_env_float("ORDER_AMOUNT"),
-        price_change_threshold=_read_env_float("PRICE_CHANGE"),
+        take_profit=_read_env_float("TAKE_PROFIT", 0.05),
+        stop_loss=_read_env_float("STOP_LOSS", 0.02),
+        order_amount=_read_env_float("ORDER_AMOUNT", 100.0),
+        price_change_threshold=_read_env_float("PRICE_CHANGE", 0.02),
         fast_window=int(_read_env_float("FAST_WINDOW", 21)),
         slow_window=int(_read_env_float("SLOW_WINDOW", 50)),
     )
@@ -225,9 +225,9 @@ def load_settings() -> Settings:
         prompt_template=_load_prompt_template(os.getenv("PROMPT_TEMPLATE")),
         trade=trade_settings,
         pool=PoolSafetySettings(
-            min_volume_24h=_read_env_float("MIN_VOLUME_24H"),
-            min_reserves_usd=_read_env_float("MIN_RESERVES_USD"),
-            min_buys_24h=_read_env_float("MIN_BUYS_24H"),
+            min_volume_24h=_read_env_float("MIN_VOLUME_24H", 10000.0),
+            min_reserves_usd=_read_env_float("MIN_RESERVES_USD", 50000.0),
+            min_buys_24h=_read_env_float("MIN_BUYS_24H", 10.0),
         ),
         db=db_settings,
         celery=celery_settings,

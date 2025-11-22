@@ -14,12 +14,13 @@ def get_market_data_adapter(settings: Settings) -> MarketDataPort:
     It always returns a MultiMarketDataAdapter that prioritizes the configured
     provider and uses the other as a fallback.
     """
-    binance_adapter = BinanceAdapter(settings)
-    coingecko_adapter = CoinGeckoAdapter(settings)
-
     if settings.market_data_provider == "binance":
+        binance_adapter = BinanceAdapter(settings)
+        coingecko_adapter = CoinGeckoAdapter(settings)
         return MultiMarketDataAdapter(adapters=[binance_adapter, coingecko_adapter], config=settings)
     elif settings.market_data_provider == "coingecko":
+        coingecko_adapter = CoinGeckoAdapter(settings)
+        binance_adapter = BinanceAdapter(settings)
         return MultiMarketDataAdapter(adapters=[coingecko_adapter, binance_adapter], config=settings)
     else:
         # This case should ideally not be reached if load_settings handles it correctly
